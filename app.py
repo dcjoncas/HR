@@ -1,16 +1,18 @@
-from flask import Flask, render_template, request, send_file
+from flask import Flask, render_template, request, send_file, jsonify
 from werkzeug.utils import secure_filename
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 import os
 import datetime
+import json
 
 app = Flask(__name__)
 base_dir = os.path.abspath(os.path.dirname(__file__))
 upload_folder = os.path.join(base_dir, "static", "uploads")
 pdf_output_folder = os.path.join(base_dir, "static")
 logo_path = os.path.join(base_dir, "static", "logo_home_rail.png")
+quote_store_path = os.path.join(base_dir, "quote_data.json")
 
 app.config['UPLOAD_FOLDER'] = upload_folder
 app.config['SECRET_KEY'] = 'secret'
@@ -21,9 +23,41 @@ os.makedirs(pdf_output_folder, exist_ok=True)
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ['png', 'jpg', 'jpeg', 'gif']
 
+def save_quote_version(quote_data):
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    quote_id = f"{quote_data['ClientName'].replace(' ', '_')}_{timestamp}"
+
+    entry = {
+        "id": quote_id,
+        "timestamp": timestamp,
+        "data": quote_data
+    }
+
+    existing = []
+    if os.path.exists(quote_store_path):
+        with open(quote_store_path, "r") as f:
+            try:
+                existing = json.load(f)
+            except json.JSONDecodeError:
+                existing = []
+
+    existing.append(entry)
+
+    with open(quote_store_path, "w") as f:
+        json.dump(existing, f, indent=2)
+
+    return quote_id
+
 @app.route('/')
 def index():
-    return render_template('index.html')
+    quotes = []
+    if os.path.exists(quote_store_path):
+        with open(quote_store_path, "r") as f:
+            try:
+                quotes = json.load(f)
+            except json.JSONDecodeError:
+                pass
+    return render_template('index.html', quotes=quotes)
 
 @app.route('/submit', methods=['POST'])
 def submit_quote():
@@ -52,6 +86,8 @@ def submit_quote():
         file.save(file_path)
     else:
         file_path = None
+
+    save_quote_version(data)
 
     safe_name = "".join(c for c in client_name if c.isalnum() or c in (' ', '_')).rstrip()
     pdf_filename = f"quote_{safe_name.replace(' ', '_')}.pdf"
@@ -155,5 +191,23 @@ def submit_quote():
 
     return send_file(pdf_path, as_attachment=True)
 
-#if __name__ == '__main__':
- #   app.run(debug=True)
+@app.route('/delete/<quote_id>', methods=['DELETE'])
+def delete_quote(quote_id):
+    if not os.path.exists(quote_store_path):
+        return jsonify({"error": "No quotes stored."}), 404
+
+    with open(quote_store_path, "r") as f:
+        quotes = json.load(f)
+
+    updated_quotes = [q for q in quotes if q["id"] != quote_id]
+
+    with open(quote_store_path, "w") as f:
+        json.dump(updated_quotes, f, indent=2)
+
+    return jsonify({"success": True})
+
+
+
+# this is for local deployments  -  remove if distributing
+if __name__ == '__main__':
+    app.run(debug=True)
