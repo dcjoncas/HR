@@ -6,6 +6,7 @@ from reportlab.lib import colors
 import os
 import datetime
 import json
+import re
 
 app = Flask(__name__)
 base_dir = os.path.abspath(os.path.dirname(__file__))
@@ -57,17 +58,43 @@ def index():
 def submit_quote():
     data = {k: request.form.get(k, '').strip() for k in request.form}
     client_name = data.get("ClientName")
+    client_address = data.get("Address")
+    
     if not client_name:
         return "Client name is required.", 400
 
-    try:
-        footage = float(data.get("Footage", 0))
-        price_per_ft = float(data.get("PricePerFt", 0))
-    except ValueError:
-        return "Footage and Price must be valid numbers.", 400
+    # Process multiple products
+    products = []
+    product_pattern = re.compile(r'Products\[(\d+)\]\[(\w+)\]')
+    product_dict = {}
+    
+    for key, value in request.form.items():
+        match = product_pattern.match(key)
+        if match:
+            index, field = match.groups()
+            if index not in product_dict:
+                product_dict[index] = {}
+            product_dict[index][field] = value.strip()
+
+    for index in sorted(product_dict.keys()):
+        product = product_dict[index]
+        try:
+            footage = float(product.get("Footage", 0))
+            price_per_ft = float(product.get("PricePerFt", 0))
+            products.append({
+                "Product": product.get("Product", ""),
+                "Footage": footage,
+                "PricePerFt": price_per_ft,
+                "LineTotal": footage * price_per_ft
+            })
+        except ValueError:
+            return f"Footage and Price for product {index} must be valid numbers.", 400
+
+    if not products:
+        return "At least one product is required.", 400
 
     gst_rate = 0.05
-    subtotal = footage * price_per_ft
+    subtotal = sum(product["LineTotal"] for product in products)
     gst = subtotal * gst_rate
     total = subtotal + gst
     deposit = total / 2
@@ -85,10 +112,23 @@ def submit_quote():
     extra_image1 = save_uploaded_image('extraImage1')
     extra_image2 = save_uploaded_image('extraImage2')
 
+    # Save the quote with products
+    data["Products"] = products
     save_quote_version(data)
 
-    safe_name = "".join(c for c in client_name if c.isalnum() or c in (' ', '_')).rstrip()
-    pdf_filename = f"quote_{safe_name.replace(' ', '_')}.pdf"
+    # Create a safe filename using both name and address
+    safe_name = "".join(c for c in client_name if c.isalnum() or c in (' ', '_')).rstrip().replace(' ', '_')
+    safe_address = ""
+    if client_address:
+        address_parts = client_address.split(',')[0].split()
+        if address_parts:
+            safe_address = "".join(c for c in address_parts[0] if c.isalnum()).rstrip()
+    
+    pdf_filename = f"quote_{safe_name}"
+    if safe_address:
+        pdf_filename += f"_{safe_address}"
+    pdf_filename += ".pdf"
+    
     pdf_path = os.path.join(pdf_output_folder, pdf_filename)
 
     c = canvas.Canvas(pdf_path, pagesize=letter)
@@ -145,12 +185,14 @@ def submit_quote():
     y -= 20
 
     c.setFont("Helvetica", 10)
-    c.drawString(50, y, data.get("Product"))
-    c.drawString(220, y, str(footage))
-    c.drawString(320, y, f"${price_per_ft:.2f}")
-    c.drawString(420, y, f"${footage * price_per_ft:.2f}")
+    for product in products:
+        c.drawString(50, y, product["Product"])
+        c.drawString(220, y, str(product["Footage"]))
+        c.drawString(320, y, f"${product['PricePerFt']:.2f}")
+        c.drawString(420, y, f"${product['LineTotal']:.2f}")
+        y -= 20
 
-    y -= 40
+    y -= 20
     c.setFont("Helvetica-Bold", 10)
     c.drawString(350, y, f"Subtotal: ${subtotal:.2f}")
     y -= 15

@@ -10,11 +10,13 @@
         margin: 0;
         padding: 30px;
       }
+
       .container {
         display: flex;
         justify-content: center;
         gap: 20px;
       }
+
       .form-section {
         background: white;
         border-radius: 8px;
@@ -23,6 +25,7 @@
         flex: 3;
         max-width: 800px;
       }
+
       .quote-list {
         background: white;
         border-radius: 8px;
@@ -33,21 +36,25 @@
         overflow-y: auto;
         min-width: 220px;
       }
+
       .row {
         display: flex;
         gap: 20px;
       }
+
       .row label,
       .row input,
       .row select,
       .row textarea {
         flex: 1;
       }
+
       label {
         font-weight: bold;
         display: block;
         margin-top: 10px;
       }
+
       input[type="text"],
       input[type="number"],
       input[type="date"],
@@ -58,6 +65,7 @@
         margin-top: 5px;
         margin-bottom: 10px;
       }
+
       button {
         margin-top: 10px;
         margin-right: 5px;
@@ -68,21 +76,85 @@
         border: none;
         cursor: pointer;
       }
+
+      .remove-product {
+        background-color: darkred;
+        padding: 5px 10px;
+        margin-left: 10px;
+      }
+
       h3,
       h2 {
         margin-top: 0;
       }
+
       .quote-entry {
         margin-bottom: 10px;
         padding-bottom: 10px;
         border-bottom: 1px solid #ccc;
       }
+
       .quote-entry button {
         background-color: #0d3c61;
         margin-right: 5px;
       }
+
       .quote-entry button.delete {
         background-color: darkred;
+      }
+
+      .drop-zone {
+        border: 2px dashed #0d3c61;
+        padding: 20px;
+        text-align: center;
+        color: #0d3c61;
+        background-color: #f8f9fb;
+        cursor: pointer;
+        margin-top: 10px;
+        margin-bottom: 20px;
+        position: relative;
+        transition: background 0.2s ease;
+      }
+
+      .drop-zone:hover {
+        background: #e9f1f9;
+      }
+
+      .drop-zone input {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+      }
+
+      .drop-zone-icon {
+        font-size: 2rem;
+        display: block;
+        margin-bottom: 8px;
+      }
+
+      .highlight {
+        background-color: #e9f1f9;
+      }
+
+      .address-preview {
+        font-size: 0.85em;
+        color: #666;
+        margin-top: 3px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 200px;
+      }
+
+      .product-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
       }
     </style>
   </head>
@@ -185,42 +257,70 @@
           <label>Install Notes:</label>
           <textarea name="InstallNotes" rows="3"></textarea>
 
-          <label>Product:</label>
-          <select name="Product">
-            <option>Clear Windwall 90" 2 panel</option>
-            <option>clear windwall 72"</option>
-            <option>Stair Glass</option>
-            <option>Solar Grey Glass</option>
-            <option>Solar Grey Stairs</option>
-            <option>68 mm Vinyl</option>
-            <option>Topless Glass 42" High</option>
-            <option>Urban 42" High</option>
-            <option>Glass Gate</option>
-            <option>Side Mount Glass 42 clear</option>
-            <option>Side mount Picket 42</option>
-            <option>Wide Picket 42" High</option>
-            <option>Cross Hatch 42" High</option>
-          </select>
-
-          <div class="row">
-            <div>
-              <label>Footage (ft):</label><input type="number" name="Footage" />
-            </div>
-            <div>
-              <label>Price per FT ($):</label
-              ><input type="number" name="PricePerFt" />
+          <label>Products:</label>
+          <div id="productEntries">
+            <div class="product-row">
+              <div style="flex: 2">
+                <label>Product:</label>
+                <select name="Products[0][Product]">
+                  <option>Clear Windwall 90&quot; 2 panel</option>
+                  <option>clear windwall 72&quot;</option>
+                  <option>Stair Glass</option>
+                  <option>Solar Grey Glass</option>
+                  <option>Solar Grey Stairs</option>
+                  <option>68 mm Vinyl</option>
+                  <option>Topless Glass 42&quot; High</option>
+                  <option>Urban 42&quot; High</option>
+                  <option>Glass Gate</option>
+                  <option>Side Mount Glass 42 clear</option>
+                  <option>Side mount Picket 42</option>
+                  <option>Wide Picket 42&quot; High</option>
+                  <option>Cross Hatch 42&quot; High</option>
+                </select>
+              </div>
+              <div style="flex: 1">
+                <label>Footage (ft):</label>
+                <input type="number" name="Products[0][Footage]" />
+              </div>
+              <div style="flex: 1">
+                <label>Price per FT ($):</label>
+                <input type="number" name="Products[0][PricePerFt]" />
+              </div>
+              <button
+                type="button"
+                class="remove-product"
+                onclick="removeProduct(this)"
+                style="display: none"
+              >
+                Remove
+              </button>
             </div>
           </div>
+          <button type="button" onclick="addProduct()">
+            Add Another Product
+          </button>
 
-          <!-- IMAGE SECTION -->
+          <!-- DRAG & DROP IMAGE UPLOADS -->
           <label>Upload Optional Image:</label>
-          <input type="file" name="fileUpload" />
+          <div class="drop-zone">
+            <div class="drop-zone-icon">📂</div>
+            <div>Drag & Drop or Click to Upload Image</div>
+            <input type="file" name="fileUpload" accept="image/*" />
+          </div>
 
           <label>Extra Image 1:</label>
-          <input type="file" name="extraImage1" />
+          <div class="drop-zone">
+            <div class="drop-zone-icon">📂</div>
+            <div>Drag & Drop or Click to Upload</div>
+            <input type="file" name="extraImage1" accept="image/*" />
+          </div>
 
           <label>Extra Image 2:</label>
-          <input type="file" name="extraImage2" />
+          <div class="drop-zone">
+            <div class="drop-zone-icon">📂</div>
+            <div>Drag & Drop or Click to Upload</div>
+            <input type="file" name="extraImage2" accept="image/*" />
+          </div>
 
           <button type="submit">Generate Quote PDF</button>
         </form>
@@ -229,34 +329,105 @@
       <!-- SAVED QUOTES SECTION -->
       <div class="quote-list">
         <h3>Saved Quotes</h3>
-        {% if quotes %}
-        <script>
-          const savedQuotes = {};
-        </script>
-        {% for q in quotes %}
-        <div class="quote-entry" id="quote-{{ q.id }}">
-          <strong>{{ q.data.ClientName }}</strong> – {{ q.timestamp }}<br />
-          <button type="button" onclick="loadQuote('{{ q.id }}')">
-            Load Quote
-          </button>
-          <button
-            type="button"
-            class="delete"
-            onclick="deleteQuote('{{ q.id }}')"
-          >
-            Delete
-          </button>
+        <input
+          type="text"
+          id="searchInput"
+          placeholder="Search by name or address"
+          oninput="searchQuotes(this.value)"
+          style="width: 100%; padding: 6px; margin-bottom: 12px"
+        />
+
+        <div id="quoteResults">
+          {% if quotes %}
           <script>
-            savedQuotes["{{ q.id }}"] = {{ q.data | tojson | safe }};
+            const savedQuotes = {};
           </script>
+          {% for q in quotes %}
+          <div
+            class="quote-entry"
+            id="quote-{{ q.id }}"
+            data-name="{{ q.data.ClientName | lower }}"
+            data-address="{{ q.data.Address | lower }}"
+          >
+            <strong>{{ q.data.ClientName }}</strong> – {{ q.timestamp }}<br />
+            <div class="address-preview">{{ q.data.Address }}</div>
+            <button type="button" onclick="loadQuote('{{ q.id }}')">
+              Load Quote
+            </button>
+            <button
+              type="button"
+              class="delete"
+              onclick="deleteQuote('{{ q.id }}')"
+            >
+              Delete
+            </button>
+            <script>
+              savedQuotes["{{ q.id }}"] = {{ q.data | tojson | safe }};
+            </script>
+          </div>
+          {% endfor %} {% else %}
+          <p>No saved quotes yet.</p>
+          {% endif %}
         </div>
-        {% endfor %} {% else %}
-        <p>No saved quotes yet.</p>
-        {% endif %}
       </div>
     </div>
 
     <script>
+      let productCount = 1;
+
+      function addProduct() {
+        const container = document.getElementById("productEntries");
+        const newRow = document.createElement("div");
+        newRow.className = "product-row";
+        newRow.innerHTML = `
+          <div style="flex: 2;">
+            <label>Product:</label>
+            <select name="Products[${productCount}][Product]">
+              <option>Clear Windwall 90&quot; 2 panel</option>
+              <option>clear windwall 72&quot;</option>
+              <option>Stair Glass</option>
+              <option>Solar Grey Glass</option>
+              <option>Solar Grey Stairs</option>
+              <option>68 mm Vinyl</option>
+              <option>Topless Glass 42&quot; High</option>
+              <option>Urban 42&quot; High</option>
+              <option>Glass Gate</option>
+              <option>Side Mount Glass 42 clear</option>
+              <option>Side mount Picket 42</option>
+              <option>Wide Picket 42&quot; High</option>
+              <option>Cross Hatch 42&quot; High</option>
+            </select>
+          </div>
+          <div style="flex: 1;">
+            <label>Footage (ft):</label>
+            <input type="number" name="Products[${productCount}][Footage]" />
+          </div>
+          <div style="flex: 1;">
+            <label>Price per FT ($):</label>
+            <input type="number" name="Products[${productCount}][PricePerFt]" />
+          </div>
+          <button type="button" class="remove-product" onclick="removeProduct(this)">Remove</button>
+        `;
+        container.appendChild(newRow);
+        productCount++;
+        updateRemoveButtons();
+      }
+
+      function removeProduct(button) {
+        button.parentElement.remove();
+        productCount--;
+        updateRemoveButtons();
+      }
+
+      function updateRemoveButtons() {
+        const rows = document.querySelectorAll(".product-row");
+        rows.forEach((row, index) => {
+          const removeButton = row.querySelector(".remove-product");
+          removeButton.style.display =
+            rows.length > 1 ? "inline-block" : "none";
+        });
+      }
+
       function loadQuote(id) {
         const data = savedQuotes[id];
         if (!data) {
@@ -266,15 +437,110 @@
 
         const form = document.getElementById("quoteForm");
         for (const key in data) {
-          const el = form.elements.namedItem(key);
-          if (el) el.value = data[key];
+          if (key === "Products") {
+            const products = data[key];
+            const container = document.getElementById("productEntries");
+            container.innerHTML = "";
+            productCount = 0;
+
+            products.forEach((product, index) => {
+              const newRow = document.createElement("div");
+              newRow.className = "product-row";
+              newRow.innerHTML = `
+                <div style="flex: 2;">
+                  <label>Product:</label>
+                  <select name="Products[${index}][Product]">
+                    <option>Clear Windwall 90&quot; 2 panel</option>
+                    <option>clear windwall 72&quot;</option>
+                    <option>Stair Glass</option>
+                    <option>Solar Grey Glass</option>
+                    <option>Solar Grey Stairs</option>
+                    <option>68 mm Vinyl</option>
+                    <option>Topless Glass 42&quot; High</option>
+                    <option>Urban 42&quot; High</option>
+                    <option>Glass Gate</option>
+                    <option>Side Mount Glass 42 clear</option>
+                    <option>Side mount Picket 42</option>
+                    <option>Wide Picket 42&quot; High</option>
+                    <option>Cross Hatch 42&quot; High</option>
+                  </select>
+                </div>
+                <div style="flex: 1;">
+                  <label>Footage (ft):</label>
+                  <input type="number" name="Products[${index}][Footage]" value="${
+                product.Footage || ""
+              }" />
+                </div>
+                <div style="flex: 1;">
+                  <label>Price per FT ($):</label>
+                  <input type="number" name="Products[${index}][PricePerFt]" value="${
+                product.PricePerFt || ""
+              }" />
+                </div>
+                <button type="button" class="remove-product" onclick="removeProduct(this)">Remove</button>
+              `;
+              container.appendChild(newRow);
+              newRow.querySelector(
+                `select[name="Products[${index}][Product]"]`
+              ).value = product.Product || "";
+              productCount++;
+            });
+            updateRemoveButtons();
+          } else {
+            const el = form.elements.namedItem(key);
+            if (el) el.value = data[key];
+          }
         }
       }
 
       function deleteQuote(id) {
-        fetch(`/delete/${id}`, { method: "DELETE" })
-          .then(() => window.location.reload())
-          .catch(() => alert("Failed to delete quote."));
+        if (confirm("Are you sure you want to delete this quote?")) {
+          fetch(`/delete/${id}`, { method: "DELETE" })
+            .then(() => window.location.reload())
+            .catch(() => alert("Failed to delete quote."));
+        }
+      }
+
+      function searchQuotes(query) {
+        query = query.toLowerCase().trim();
+        const entries = document.querySelectorAll(".quote-entry");
+
+        if (!query) {
+          entries.forEach((entry) => {
+            entry.style.display = "block";
+            entry.classList.remove("highlight");
+          });
+          return;
+        }
+
+        let hasResults = false;
+
+        entries.forEach((entry) => {
+          const name = entry.getAttribute("data-name") || "";
+          const address = entry.getAttribute("data-address") || "";
+
+          if (name.includes(query) || address.includes(query)) {
+            entry.style.display = "block";
+            entry.classList.add("highlight");
+            hasResults = true;
+          } else {
+            entry.style.display = "none";
+            entry.classList.remove("highlight");
+          }
+        });
+
+        if (!hasResults) {
+          const results = document.getElementById("quoteResults");
+          if (document.getElementById("no-results") === null) {
+            const noResults = document.createElement("p");
+            noResults.id = "no-results";
+            noResults.textContent = "No matching quotes found.";
+            results.appendChild(noResults);
+          }
+        } else {
+          const noResults = document.getElementById("no-results");
+          if (noResults) noResults.remove();
+        }
       }
     </script>
   </body>
