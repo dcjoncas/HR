@@ -19,10 +19,11 @@ pdf_output_folder = os.path.join(base_dir, "static")
 images_folder = os.path.join(base_dir, "static", "images")
 
 # Define paths to images
-logo_path = os.path.join(images_folder, "logo_home_rail.png")
-chba_logo_path = os.path.join(images_folder, "chba_logo.png")
-wcb_logo_path = os.path.join(images_folder, "wcb_logo.png")
-visa_logo_path = os.path.join(images_folder, "visa_logo.png")
+# Define paths to images
+logo_path = os.path.join(images_folder, "logo.png")
+chba_logo_path = os.path.join(images_folder, "CHB.png")
+wcb_logo_path = os.path.join(images_folder, "wcb.png")
+visa_logo_path = os.path.join(images_folder, "visa.png")
 amex_logo_path = os.path.join(images_folder, "amex_logo.png")
 mastercard_logo_path = os.path.join(images_folder, "mastercard_logo.png")
 
