@@ -7,13 +7,24 @@ import os
 import datetime
 import json
 import re
+import logging
+
+# Configure logging for debugging on Render
+logging.basicConfig(level=logging.DEBUG)
 
 app = Flask(__name__)
 base_dir = os.path.abspath(os.path.dirname(__file__))
 upload_folder = os.path.join(base_dir, "static", "uploads")
 pdf_output_folder = os.path.join(base_dir, "static")
-logo_path = os.path.join(base_dir, "static", "logo_home_rail.png")
-quote_store_path = os.path.join(base_dir, "quote_data.json")
+images_folder = os.path.join(base_dir, "static", "images")
+
+# Define paths to images
+logo_path = os.path.join(images_folder, "logo.png")
+chba_logo_path = os.path.join(images_folder, "CHB.png")
+wcb_logo_path = os.path.join(images_folder, "wcb.png")
+visa_logo_path = os.path.join(images_folder, "visa.png")
+amex_logo_path = os.path.join(images_folder, "amex_logo.png")
+mastercard_logo_path = os.path.join(images_folder, "mastercard_logo.png")
 
 app.config['UPLOAD_FOLDER'] = upload_folder
 app.config['SECRET_KEY'] = 'secret'
@@ -30,6 +41,7 @@ def save_quote_version(quote_data):
     entry = {"id": quote_id, "timestamp": timestamp, "data": quote_data}
 
     existing = []
+    quote_store_path = os.path.join(base_dir, "quote_data.json")
     if os.path.exists(quote_store_path):
         with open(quote_store_path, "r") as f:
             try:
@@ -46,6 +58,7 @@ def save_quote_version(quote_data):
 @app.route('/')
 def index():
     quotes = []
+    quote_store_path = os.path.join(base_dir, "quote_data.json")
     if os.path.exists(quote_store_path):
         with open(quote_store_path, "r") as f:
             try:
@@ -114,6 +127,7 @@ def submit_quote():
 
     # Save the quote with products
     data["Products"] = products
+    quote_store_path = os.path.join(base_dir, "quote_data.json")
     save_quote_version(data)
 
     # Create a safe filename using both name and address
@@ -134,16 +148,80 @@ def submit_quote():
     c = canvas.Canvas(pdf_path, pagesize=letter)
     width, height = letter
 
+    # Log image paths for debugging on Render
+    logging.debug(f"Base directory: {base_dir}")
+    logging.debug(f"Images folder: {images_folder}")
+    logging.debug(f"Home Rail Logo path: {logo_path}, exists: {os.path.exists(logo_path)}")
+    logging.debug(f"CHBA Logo path: {chba_logo_path}, exists: {os.path.exists(chba_logo_path)}")
+    logging.debug(f"WCB Logo path: {wcb_logo_path}, exists: {os.path.exists(wcb_logo_path)}")
+    logging.debug(f"Visa Logo path: {visa_logo_path}, exists: {os.path.exists(visa_logo_path)}")
+    logging.debug(f"Amex Logo path: {amex_logo_path}, exists: {os.path.exists(amex_logo_path)}")
+    logging.debug(f"MasterCard Logo path: {mastercard_logo_path}, exists: {os.path.exists(mastercard_logo_path)}")
+
+    # Add logos at the top of the page
+    logo_height = 50
+    logo_width = 100
+    small_logo_width = 80
+    small_logo_height = 40
+    payment_logo_width = 50
+    payment_logo_height = 30
+
+    # Home Rail logo (left)
     try:
         if os.path.exists(logo_path):
-            c.drawImage(logo_path, 40, height - 50, width=100, preserveAspectRatio=True)
+            c.drawImage(logo_path, 40, height - 60, width=logo_width, height=logo_height, preserveAspectRatio=True)
+        else:
+            logging.error(f"Home Rail logo file not found at: {logo_path}")
     except Exception as e:
-        print(f"[LOGO ERROR] Could not load logo: {e}")
+        logging.error(f"Could not load Home Rail logo: {e}")
 
+    # CHBA and WCB logos (center)
+    try:
+        if os.path.exists(chba_logo_path):
+            c.drawImage(chba_logo_path, 220, height - 60, width=small_logo_width, height=small_logo_height, preserveAspectRatio=True)
+        else:
+            logging.error(f"CHBA logo file not found at: {chba_logo_path}")
+    except Exception as e:
+        logging.error(f"Could not load CHBA logo: {e}")
+
+    try:
+        if os.path.exists(wcb_logo_path):
+            c.drawImage(wcb_logo_path, 310, height - 60, width=small_logo_width, height=small_logo_height, preserveAspectRatio=True)
+        else:
+            logging.error(f"WCB logo file not found at: {wcb_logo_path}")
+    except Exception as e:
+        logging.error(f"Could not load WCB logo: {e}")
+
+    # Payment logos (right)
+    try:
+        if os.path.exists(visa_logo_path):
+            c.drawImage(visa_logo_path, 430, height - 50, width=payment_logo_width, height=payment_logo_height, preserveAspectRatio=True)
+        else:
+            logging.error(f"Visa logo file not found at: {visa_logo_path}")
+    except Exception as e:
+        logging.error(f"Could not load Visa logo: {e}")
+
+    try:
+        if os.path.exists(amex_logo_path):
+            c.drawImage(amex_logo_path, 490, height -  emis - 50, width=payment_logo_width, height=payment_logo_height, preserveAspectRatio=True)
+        else:
+            logging.error(f"Amex logo file not found at: {amex_logo_path}")
+    except Exception as e:
+        logging.error(f"Could not load Amex logo: {e}")
+
+    try:
+        if os.path.exists(mastercard_logo_path):
+            c.drawImage(mastercard_logo_path, 550, height - 50, width=payment_logo_width, height=payment_logo_height, preserveAspectRatio=True)
+        else:
+            logging.error(f"MasterCard logo file not found at: {mastercard_logo_path}")
+    except Exception as e:
+        logging.error(f"Could not load MasterCard logo: {e}")
+
+    # Adjust the title position to be below the logos
     c.setFont("Helvetica-Bold", 14)
-    c.drawCentredString(width / 2, height - 60, "Home Rail – Quote Summary")
+    c.drawCentredString(width / 2, height - 120, "Home Rail – Quote Summary")
 
-    y = height - 90
+    y = height - 150
     c.setFont("Helvetica-Bold", 11)
     c.drawString(50, y, "Basic Information")
     y -= 5
@@ -235,6 +313,7 @@ def submit_quote():
 
 @app.route('/delete/<quote_id>', methods=['DELETE'])
 def delete_quote(quote_id):
+    quote_store_path = os.path.join(base_dir, "quote_data.json")
     if not os.path.exists(quote_store_path):
         return jsonify({"error": "No quotes stored."}), 404
 
