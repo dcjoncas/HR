@@ -171,7 +171,8 @@
         >
           <div class="row">
             <div>
-              <label>Name:</label><input type="text" name="ClientName" />
+              <label>Name:</label
+              ><input type="text" name="ClientName" required />
             </div>
             <div><label>Phone:</label><input type="text" name="Phone" /></div>
           </div>
@@ -190,39 +191,6 @@
           <div class="row">
             <div>
               <label>Quoted By:</label><input type="text" name="QuotedBy" />
-            </div>
-            <div>
-              <label>Rail Color:</label>
-              <select name="RailColor">
-                <option>Black</option>
-                <option>White</option>
-                <option>Linen</option>
-                <option>Sable</option>
-                <option>Bronze</option>
-                <option>Silver</option>
-                <option>Brown</option>
-                <option>Unknown</option>
-              </select>
-            </div>
-          </div>
-          <div class="row">
-            <div>
-              <label>Vinyl Color (Deck):</label>
-              <select name="VinylColor">
-                <option>Granite</option>
-                <option>Natural</option>
-                <option>Sage</option>
-                <option>Platinum</option>
-                <option>Carbon</option>
-                <option>Ivory</option>
-                <option>Pebble Grey</option>
-                <option>Pebble Beige</option>
-                <option>Cypress</option>
-                <option>Mahogany</option>
-                <option>Birch Plank</option>
-                <option>Fir Plank</option>
-                <option>Unknown</option>
-              </select>
             </div>
             <div>
               <label>Install Type:</label>
@@ -263,28 +231,57 @@
               <div style="flex: 2">
                 <label>Product:</label>
                 <select name="Products[0][Product]">
-                  <option>Clear Windwall 90&quot; 2 panel</option>
-                  <option>clear windwall 72&quot;</option>
+                  <option>Clear Windwall 90" 2 panel</option>
+                  <option>clear windwall 72"</option>
                   <option>Stair Glass</option>
                   <option>Solar Grey Glass</option>
                   <option>Solar Grey Stairs</option>
                   <option>68 mm Vinyl</option>
-                  <option>Topless Glass 42&quot; High</option>
-                  <option>Urban 42&quot; High</option>
+                  <option>Topless Glass 42" High</option>
+                  <option>Urban 42" High</option>
                   <option>Glass Gate</option>
                   <option>Side Mount Glass 42 clear</option>
                   <option>Side mount Picket 42</option>
-                  <option>Wide Picket 42&quot; High</option>
-                  <option>Cross Hatch 42&quot; High</option>
+                  <option>Wide Picket 42" High</option>
+                  <option>Cross Hatch 42" High</option>
+                </select>
+              </div>
+              <div style="flex: 1">
+                <label>Color:</label>
+                <select name="Products[0][Color]">
+                  <option>Black</option>
+                  <option>White</option>
+                  <option>Linen</option>
+                  <option>Sable</option>
+                  <option>Bronze</option>
+                  <option>Silver</option>
+                  <option>Brown</option>
+                  <option>Granite</option>
+                  <option>Natural</option>
+                  <option>Sage</option>
+                  <option>Platinum</option>
+                  <option>Carbon</option>
+                  <option>Ivory</option>
+                  <option>Pebble Grey</option>
+                  <option>Pebble Beige</option>
+                  <option>Cypress</option>
+                  <option>Mahogany</option>
+                  <option>Birch Plank</option>
+                  <option>Fir Plank</option>
+                  <option>Unknown</option>
                 </select>
               </div>
               <div style="flex: 1">
                 <label>Footage (ft):</label>
-                <input type="number" name="Products[0][Footage]" />
+                <input type="number" name="Products[0][Footage]" step="0.01" />
               </div>
               <div style="flex: 1">
                 <label>Price per FT ($):</label>
-                <input type="number" name="Products[0][PricePerFt]" />
+                <input
+                  type="number"
+                  name="Products[0][PricePerFt]"
+                  step="0.01"
+                />
               </div>
               <button
                 type="button"
@@ -320,6 +317,27 @@
             <div class="drop-zone-icon">📂</div>
             <div>Drag & Drop or Click to Upload</div>
             <input type="file" name="extraImage2" accept="image/*" />
+          </div>
+
+          <label>Extra Image 3:</label>
+          <div class="drop-zone">
+            <div class="drop-zone-icon">📂</div>
+            <div>Drag & Drop or Click to Upload</div>
+            <input type="file" name="extraImage3" accept="image/*" />
+          </div>
+
+          <label>Extra Image 4:</label>
+          <div class="drop-zone">
+            <div class="drop-zone-icon">📂</div>
+            <div>Drag & Drop or Click to Upload</div>
+            <input type="file" name="extraImage4" accept="image/*" />
+          </div>
+
+          <label>Extra Image 5:</label>
+          <div class="drop-zone">
+            <div class="drop-zone-icon">📂</div>
+            <div>Drag & Drop or Click to Upload</div>
+            <input type="file" name="extraImage5" accept="image/*" />
           </div>
 
           <button type="submit">Generate Quote PDF</button>
@@ -383,28 +401,53 @@
           <div style="flex: 2;">
             <label>Product:</label>
             <select name="Products[${productCount}][Product]">
-              <option>Clear Windwall 90&quot; 2 panel</option>
-              <option>clear windwall 72&quot;</option>
+              <option>Clear Windwall 90" 2 panel</option>
+              <option>clear windwall 72"</option>
               <option>Stair Glass</option>
               <option>Solar Grey Glass</option>
               <option>Solar Grey Stairs</option>
               <option>68 mm Vinyl</option>
-              <option>Topless Glass 42&quot; High</option>
-              <option>Urban 42&quot; High</option>
+              <option>Topless Glass 42" High</option>
+              <option>Urban 42" High</option>
               <option>Glass Gate</option>
               <option>Side Mount Glass 42 clear</option>
               <option>Side mount Picket 42</option>
-              <option>Wide Picket 42&quot; High</option>
-              <option>Cross Hatch 42&quot; High</option>
+              <option>Wide Picket 42" High</option>
+              <option>Cross Hatch 42" High</option>
+            </select>
+          </div>
+          <div style="flex: 1;">
+            <label>Color:</label>
+            <select name="Products[${productCount}][Color]">
+              <option>Black</option>
+              <option>White</option>
+              <option>Linen</option>
+              <option>Sable</option>
+              <option>Bronze</option>
+              <option>Silver</option>
+              <option>Brown</option>
+              <option>Granite</option>
+              <option>Natural</option>
+              <option>Sage</option>
+              <option>Platinum</option>
+              <option>Carbon</option>
+              <option>Ivory</option>
+              <option>Pebble Grey</option>
+              <option>Pebble Beige</option>
+              <option>Cypress</option>
+              <option>Mahogany</option>
+              <option>Birch Plank</option>
+              <option>Fir Plank</option>
+              <option>Unknown</option>
             </select>
           </div>
           <div style="flex: 1;">
             <label>Footage (ft):</label>
-            <input type="number" name="Products[${productCount}][Footage]" />
+            <input type="number" name="Products[${productCount}][Footage]" step="0.01" />
           </div>
           <div style="flex: 1;">
             <label>Price per FT ($):</label>
-            <input type="number" name="Products[${productCount}][PricePerFt]" />
+            <input type="number" name="Products[${productCount}][PricePerFt]" step="0.01" />
           </div>
           <button type="button" class="remove-product" onclick="removeProduct(this)">Remove</button>
         `;
@@ -450,32 +493,57 @@
                 <div style="flex: 2;">
                   <label>Product:</label>
                   <select name="Products[${index}][Product]">
-                    <option>Clear Windwall 90&quot; 2 panel</option>
-                    <option>clear windwall 72&quot;</option>
+                    <option>Clear Windwall 90" 2 panel</option>
+                    <option>clear windwall 72"</option>
                     <option>Stair Glass</option>
                     <option>Solar Grey Glass</option>
                     <option>Solar Grey Stairs</option>
                     <option>68 mm Vinyl</option>
-                    <option>Topless Glass 42&quot; High</option>
-                    <option>Urban 42&quot; High</option>
+                    <option>Topless Glass 42" High</option>
+                    <option>Urban 42" High</option>
                     <option>Glass Gate</option>
                     <option>Side Mount Glass 42 clear</option>
                     <option>Side mount Picket 42</option>
-                    <option>Wide Picket 42&quot; High</option>
-                    <option>Cross Hatch 42&quot; High</option>
+                    <option>Wide Picket 42" High</option>
+                    <option>Cross Hatch 42" High</option>
+                  </select>
+                </div>
+                <div style="flex: 1;">
+                  <label>Color:</label>
+                  <select name="Products[${index}][Color]">
+                    <option>Black</option>
+                    <option>White</option>
+                    <option>Linen</option>
+                    <option>Sable</option>
+                    <option>Bronze</option>
+                    <option>Silver</option>
+                    <option>Brown</option>
+                    <option>Granite</option>
+                    <option>Natural</option>
+                    <option>Sage</option>
+                    <option>Platinum</option>
+                    <option>Carbon</option>
+                    <option>Ivory</option>
+                    <option>Pebble Grey</option>
+                    <option>Pebble Beige</option>
+                    <option>Cypress</option>
+                    <option>Mahogany</option>
+                    <option>Birch Plank</option>
+                    <option>Fir Plank</option>
+                    <option>Unknown</option>
                   </select>
                 </div>
                 <div style="flex: 1;">
                   <label>Footage (ft):</label>
                   <input type="number" name="Products[${index}][Footage]" value="${
                 product.Footage || ""
-              }" />
+              }" step="0.01" />
                 </div>
                 <div style="flex: 1;">
                   <label>Price per FT ($):</label>
                   <input type="number" name="Products[${index}][PricePerFt]" value="${
                 product.PricePerFt || ""
-              }" />
+              }" step="0.01" />
                 </div>
                 <button type="button" class="remove-product" onclick="removeProduct(this)">Remove</button>
               `;
@@ -483,6 +551,9 @@
               newRow.querySelector(
                 `select[name="Products[${index}][Product]"]`
               ).value = product.Product || "";
+              newRow.querySelector(
+                `select[name="Products[${index}][Color]"]`
+              ).value = product.Color || "";
               productCount++;
             });
             updateRemoveButtons();
