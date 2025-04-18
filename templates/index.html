@@ -120,7 +120,7 @@
         background: #e9f1f9;
       }
 
-      .drop-zone input {
+      .drop-zone input[type="file"] {
         position: absolute;
         width: 100%;
         height: 100%;
@@ -134,6 +134,13 @@
         font-size: 2rem;
         display: block;
         margin-bottom: 8px;
+      }
+
+      .drop-zone .file-name {
+        font-size: 0.9em;
+        color: #333;
+        margin-top: 5px;
+        word-break: break-all;
       }
 
       .highlight {
@@ -169,6 +176,7 @@
           enctype="multipart/form-data"
           id="quoteForm"
         >
+          <input type="hidden" name="quoteId" id="quoteId" value="" />
           <div class="row">
             <div>
               <label>Name:</label
@@ -301,43 +309,85 @@
           <label>Upload Optional Image:</label>
           <div class="drop-zone">
             <div class="drop-zone-icon">📂</div>
-            <div>Drag & Drop or Click to Upload Image</div>
+            <div class="drop-text">Drag & Drop or Click to Upload Image</div>
+            <div class="file-name"></div>
             <input type="file" name="fileUpload" accept="image/*" />
+            <input
+              type="hidden"
+              name="fileUpload_existing"
+              id="fileUpload_existing"
+              value=""
+            />
           </div>
 
           <label>Extra Image 1:</label>
           <div class="drop-zone">
             <div class="drop-zone-icon">📂</div>
-            <div>Drag & Drop or Click to Upload</div>
+            <div class="drop-text">Drag & Drop or Click to Upload</div>
+            <div class="file-name"></div>
             <input type="file" name="extraImage1" accept="image/*" />
+            <input
+              type="hidden"
+              name="extraImage1_existing"
+              id="extraImage1_existing"
+              value=""
+            />
           </div>
 
           <label>Extra Image 2:</label>
           <div class="drop-zone">
             <div class="drop-zone-icon">📂</div>
-            <div>Drag & Drop or Click to Upload</div>
+            <div class="drop-text">Drag & Drop or Click to Upload</div>
+            <div class="file-name"></div>
             <input type="file" name="extraImage2" accept="image/*" />
+            <input
+              type="hidden"
+              name="extraImage2_existing"
+              id="extraImage2_existing"
+              value=""
+            />
           </div>
 
           <label>Extra Image 3:</label>
           <div class="drop-zone">
             <div class="drop-zone-icon">📂</div>
-            <div>Drag & Drop or Click to Upload</div>
+            <div class="drop-text">Drag & Drop or Click to Upload</div>
+            <div class="file-name"></div>
             <input type="file" name="extraImage3" accept="image/*" />
+            <input
+              type="hidden"
+              name="extraImage3_existing"
+              id="extraImage3_existing"
+              value=""
+            />
           </div>
 
           <label>Extra Image 4:</label>
           <div class="drop-zone">
             <div class="drop-zone-icon">📂</div>
-            <div>Drag & Drop or Click to Upload</div>
+            <div class="drop-text">Drag & Drop or Click to Upload</div>
+            <div class="file-name"></div>
             <input type="file" name="extraImage4" accept="image/*" />
+            <input
+              type="hidden"
+              name="extraImage4_existing"
+              id="extraImage4_existing"
+              value=""
+            />
           </div>
 
           <label>Extra Image 5:</label>
           <div class="drop-zone">
             <div class="drop-zone-icon">📂</div>
-            <div>Drag & Drop or Click to Upload</div>
+            <div class="drop-text">Drag & Drop or Click to Upload</div>
+            <div class="file-name"></div>
             <input type="file" name="extraImage5" accept="image/*" />
+            <input
+              type="hidden"
+              name="extraImage5_existing"
+              id="extraImage5_existing"
+              value=""
+            />
           </div>
 
           <button type="submit">Generate Quote PDF</button>
@@ -479,6 +529,7 @@
         }
 
         const form = document.getElementById("quoteForm");
+        document.getElementById("quoteId").value = id;
         for (const key in data) {
           if (key === "Products") {
             const products = data[key];
@@ -557,13 +608,34 @@
               productCount++;
             });
             updateRemoveButtons();
+          } else if (key === "Images") {
+            for (const [field, filename] of Object.entries(data[key])) {
+              const hiddenInput = document.getElementById(`${field}_existing`);
+              const dropZone = document.querySelector(
+                `input[name="${field}"]`
+              ).parentElement;
+
+              if (filename) {
+                dropZone.querySelector(
+                  ".file-name"
+                ).textContent = `Uploaded: ${filename}`;
+                dropZone.querySelector(".drop-text").textContent =
+                  "Replace Image";
+                hiddenInput.value = filename; // Store the value for later submission.
+              } else {
+                hiddenInput.value = "";
+                dropZone.querySelector(".file-name").textContent = ""; // Clear filename
+                dropZone.querySelector(".drop-text").textContent =
+                  "Drag & Drop or Click to Upload"; // Restore text
+              }
+            }
           } else {
             const el = form.elements.namedItem(key);
             if (el) el.value = data[key];
           }
         }
       }
-
+      s;
       function deleteQuote(id) {
         if (confirm("Are you sure you want to delete this quote?")) {
           fetch(`/delete/${id}`, { method: "DELETE" })
@@ -613,6 +685,33 @@
           if (noResults) noResults.remove();
         }
       }
+
+      // Add event listeners for file uploads
+      document
+        .querySelectorAll(".drop-zone input[type='file']")
+        .forEach((input) => {
+          input.addEventListener("change", function () {
+            const dropZone = this.parentElement;
+            const fileNameDiv = dropZone.querySelector(".file-name");
+            const dropText = dropZone.querySelector(".drop-text");
+            const hiddenInput = document.getElementById(
+              `${this.name}_existing`
+            );
+            if (this.files.length > 0) {
+              fileNameDiv.textContent = `Uploaded: ${this.files[0].name}`;
+              dropText.textContent = "Replace Image";
+              if (hiddenInput) {
+                hiddenInput.value = "";
+              }
+            } else {
+              fileNameDiv.textContent = "";
+              dropText.textContent = "Drag & Drop or Click to Upload Image";
+              if (hiddenInput) {
+                hiddenInput.value = "";
+              }
+            }
+          });
+        });
     </script>
   </body>
 </html>

@@ -8,16 +8,16 @@ import datetime
 import json
 import re
 import logging
-import math  # Import math for ceiling rounding
+import math
 
-# Configure logging for debugging on Render
-logging.basicConfig(level=logging.DEBUG)
+# Configure logging with detailed output
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 app = Flask(__name__)
 base_dir = os.path.abspath(os.path.dirname(__file__))
-upload_folder = os.path.join(base_dir, "static", "Uploads")
-pdf_output_folder = os.path.join(base_dir, "static")
-images_folder = os.path.join(base_dir, "static", "images")
+upload_folder = os.path.normpath(os.path.join(base_dir, "static", "Uploads"))
+pdf_output_folder = os.path.normpath(os.path.join(base_dir, "static"))
+images_folder = os.path.normpath(os.path.join(base_dir, "static", "images"))
 
 # Define paths to images
 logo_path = os.path.join(images_folder, "logo.png")
@@ -30,15 +30,24 @@ mastercard_logo_path = os.path.join(images_folder, "mastercard_logo.png")
 app.config['UPLOAD_FOLDER'] = upload_folder
 app.config['SECRET_KEY'] = 'secret'
 
+# Ensure upload folder exists
 os.makedirs(upload_folder, exist_ok=True)
 os.makedirs(pdf_output_folder, exist_ok=True)
+logging.debug(f"Upload folder initialized: {upload_folder}, exists: {os.path.exists(upload_folder)}")
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ['png', 'jpg', 'jpeg', 'gif']
 
-def save_quote_version(quote_data):
+def get_existing_image(filename):
+    """Validate if an image file exists in the upload folder."""
+    if filename and os.path.exists(os.path.join(app.config['UPLOAD_FOLDER'], filename)):
+        return filename
+    return None
+
+def save_quote_version(quote_data, quote_id):
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    quote_id = f"{quote_data['ClientName'].replace(' ', '_')}_{timestamp}"
+    if not quote_id:
+        quote_id = f"{quote_data['ClientName'].replace(' ', '_')}_{timestamp}"
     entry = {"id": quote_id, "timestamp": timestamp, "data": quote_data}
 
     existing = []
@@ -54,9 +63,9 @@ def save_quote_version(quote_data):
     with open(quote_store_path, "w") as f:
         json.dump(existing, f, indent=2)
 
+    logging.debug(f"Saved quote with ID: {quote_id}, Images: {quote_data.get('Images', {})}")
     return quote_id
 
-# Function to draw the header (logos and title) on the first page
 def draw_header(c, width, height):
     logo_height = 50
     logo_width = 100
@@ -116,7 +125,6 @@ def draw_header(c, width, height):
     c.setFont("Helvetica-Bold", 14)
     c.drawCentredString(width / 2, height - 120, "Home Rail – Quote Summary")
 
-# Function to wrap text and calculate the number of lines
 def wrap_text(c, text, max_width, font_name, font_size):
     c.setFont(font_name, font_size)
     words = text.split()
@@ -147,7 +155,13 @@ def index():
             try:
                 quotes = json.load(f)
             except json.JSONDecodeError:
-                pass
+                quotes = []
+        # Validate image filenames
+        for quote in quotes:
+            images = quote["data"].get("Images", {})
+            for key in images:
+                images[key] = get_existing_image(images[key])
+            quote["data"]["Images"] = images
     return render_template('index.html', quotes=quotes)
 
 @app.route('/submit', methods=['POST'])
@@ -155,7 +169,10 @@ def submit_quote():
     data = {k: request.form.get(k, '').strip() for k in request.form}
     client_name = data.get("ClientName")
     client_address = data.get("Address")
+    quote_id = data.get("quoteId", "")
     
+    logging.debug(f"Form data received: {data}")
+
     if not client_name:
         return "Client name is required.", 400
 
@@ -197,42 +214,72 @@ def submit_quote():
     total = subtotal + gst
     deposit = total / 2
 
-    # Function to round up to 2 decimal places
     def round_up_to_2_decimals(value):
         return math.ceil(value * 100) / 100
 
-    # Apply ceiling rounding to financial values
     subtotal_rounded = round_up_to_2_decimals(subtotal)
     gst_rounded = round_up_to_2_decimals(gst)
     total_rounded = round_up_to_2_decimals(total)
     deposit_rounded = round_up_to_2_decimals(deposit)
 
-    # Round LineTotal for each product
     for product in products:
         product["LineTotalRounded"] = round_up_to_2_decimals(product["LineTotal"])
 
-    def save_uploaded_image(field_name):
+    def save_uploaded_image(field_name, quote_id, suffix):
         file = request.files.get(field_name)
         if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            path = os.path.join(upload_folder, filename)
-            file.save(path)
-            return path
+            ext = secure_filename(file.filename).rsplit('.', 1)[1].lower()
+            filename = f"{quote_id}_{suffix}.{ext}"
+            path = os.path.normpath(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            try:
+                file.save(path)
+                if os.path.exists(path):
+                    logging.debug(f"Successfully saved image: {path}")
+                    return filename
+                else:
+                    logging.error(f"Failed to save image: {path} does not exist after save")
+                    return None
+            except Exception as e:
+                logging.error(f"Error saving image {field_name}: {e}")
+                return None
+        else:
+            logging.debug(f"No file or invalid file for {field_name}")
         return None
 
-    primary_image = save_uploaded_image('fileUpload')
-    extra_image1 = save_uploaded_image('extraImage1')
-    extra_image2 = save_uploaded_image('extraImage2')
-    extra_image3 = save_uploaded_image('extraImage3')
-    extra_image4 = save_uploaded_image('extraImage4')
-    extra_image5 = save_uploaded_image('extraImage5')
+    # Use existing filenames from hidden inputs if no new upload
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    if not quote_id:
+        quote_id = f"{client_name.replace(' ', '_')}_{timestamp}"
 
-    # Save the quote with products
+    image_fields = [
+        ('fileUpload', 'primary'),
+        ('extraImage1', 'extra1'),
+        ('extraImage2', 'extra2'),
+        ('extraImage3', 'extra3'),
+        ('extraImage4', 'extra4'),
+        ('extraImage5', 'extra5')
+    ]
+
+    images_data = {}
+    for field, suffix in image_fields:
+        # Check for new upload first
+        new_filename = save_uploaded_image(field, quote_id, suffix)
+        if new_filename:
+            images_data[field] = new_filename
+        else:
+            # Use existing filename from hidden input if no new upload
+            existing_filename = data.get(f"{field}_existing")
+            if existing_filename and os.path.exists(os.path.join(app.config['UPLOAD_FOLDER'], existing_filename)):
+                images_data[field] = existing_filename
+                logging.debug(f"Using existing image for {field}: {existing_filename}")
+            else:
+                images_data[field] = None
+                logging.debug(f"No valid existing image for {field}")
+
+    data["Images"] = images_data
     data["Products"] = products
-    quote_store_path = os.path.join(base_dir, "quote_data.json")
-    save_quote_version(data)
+    quote_id = save_quote_version(data, quote_id)
 
-    # Create a safe filename using both name and address
     safe_name = "".join(c for c in client_name if c.isalnum() or c in (' ', '_')).rstrip().replace(' ', '_')
     safe_address = ""
     if client_address:
@@ -245,12 +292,11 @@ def submit_quote():
         pdf_filename += f"_{safe_address}"
     pdf_filename += ".pdf"
     
-    pdf_path = os.path.join(pdf_output_folder, pdf_filename)
+    pdf_path = os.path.normpath(os.path.join(pdf_output_folder, pdf_filename))
 
     c = canvas.Canvas(pdf_path, pagesize=letter)
     width, height = letter
 
-    # Log image paths for debugging on Render
     logging.debug(f"Base directory: {base_dir}")
     logging.debug(f"Images folder: {images_folder}")
     logging.debug(f"Home Rail Logo path: {logo_path}, exists: {os.path.exists(logo_path)}")
@@ -260,14 +306,11 @@ def submit_quote():
     logging.debug(f"Amex Logo path: {amex_logo_path}, exists: {os.path.exists(amex_logo_path)}")
     logging.debug(f"MasterCard Logo path: {mastercard_logo_path}, exists: {os.path.exists(mastercard_logo_path)}")
 
-    # Draw the header for the first page
     draw_header(c, width, height)
 
-    # Add contact information below the title
-    y = height - 140  # Start below title (height - 120 - 20)
-    c.setFont("Helvetica", 8)  # Smaller font, non-bold
+    y = height - 140
+    c.setFont("Helvetica", 8)
 
-    # Four sections side by side
     section1 = [
         "5520-4th Street SE",
         "Calgary, Alberta",
@@ -291,40 +334,34 @@ def submit_quote():
         "Sales: (587) 320-1118"
     ]
 
-    # Define x-positions for each section (centered within their width)
-    section_width = 125  # 500 points / 4 columns
-    x_positions = [50, 175, 300, 425]  # x=50, 175, 300, 425
+    section_width = 125
+    x_positions = [50, 175, 300, 425]
 
-    # Draw section 1 (Address)
     y_temp = y
     for line in section1:
         line_width = c.stringWidth(line, "Helvetica", 8)
         c.drawString(x_positions[0] + (section_width - line_width) / 2, y_temp, line)
-        y_temp -= 9  # Reduced from 10 to 9 for tighter spacing
+        y_temp -= 9
 
-    # Draw section 2 (Office Hours)
     y_temp = y
     for line in section2:
         line_width = c.stringWidth(line, "Helvetica", 8)
         c.drawString(x_positions[1] + (section_width - line_width) / 2, y_temp, line)
         y_temp -= 9
 
-    # Draw section 3 (Website and first three phone numbers)
     y_temp = y
     for line in section3:
         line_width = c.stringWidth(line, "Helvetica", 8)
         c.drawString(x_positions[2] + (section_width - line_width) / 2, y_temp, line)
         y_temp -= 9
 
-    # Draw section 4 (Remaining three phone numbers)
     y_temp = y
     for line in section4:
         line_width = c.stringWidth(line, "Helvetica", 8)
         c.drawString(x_positions[3] + (section_width - line_width) / 2, y_temp, line)
         y_temp -= 9
 
-    # Move to Basic Information section
-    y = height - 190  # Adjusted from height - 180 to account for new contact info height
+    y = height - 190
     c.setFont("Helvetica-Bold", 11)
     c.drawString(50, y, "Basic Information")
     y -= 5
@@ -370,10 +407,10 @@ def submit_quote():
 
     y -= 10
     remaining_space_needed = (
-        20 +  # Space after products
-        80 +  # Financial summary
-        60    # Signatures
-    )  # Total: 160 points
+        20 +
+        80 +
+        60
+    )
 
     c.setFont("Helvetica-Bold", 11)
     c.drawString(50, y, "Quote Details")
@@ -443,45 +480,85 @@ def submit_quote():
     c.drawString(50, y, "Home Rail Rep Signature: __________________")
     c.drawString(350, y, "Date: __________")
 
-    # Force a page break to move Reference Images to the second page
     c.showPage()
-    y = height - 200  # Start position for images
+    y = height - 190
 
-    # Reference Images section (no title or line)
-    img_width, img_height = 200, 150
-    img_spacing_x, img_spacing_y = 10, 10
+    img_width, img_height = 230, 172.5
+    img_spacing_x, img_spacing_y = 8, 8
     img_positions = [
-        (50, y),                    # Row 1, Col 1
-        (50 + img_width + img_spacing_x, y),  # Row 1, Col 2
-        (50, y - img_height - img_spacing_y),  # Row 2, Col 1
-        (50 + img_width + img_spacing_x, y - img_height - img_spacing_y),  # Row 2, Col 2
-        (50, y - 2 * (img_height + img_spacing_y)),  # Row 3, Col 1
-        (50 + img_width + img_spacing_x, y - 2 * (img_height + img_spacing_y))  # Row 3, Col 2
+        (50, y),
+        (50 + img_width + img_spacing_x, y),
+        (50, y - img_height - img_spacing_y),
+        (50 + img_width + img_spacing_x, y - img_height - img_spacing_y),
+        (50, y - 2 * (img_height + img_spacing_y)),
+        (50 + img_width + img_spacing_x, y - 2 * (img_height + img_spacing_y))
     ]
 
     images = [
-        (primary_image, "Primary Image"),
-        (extra_image1, "Extra Image 1"),
-        (extra_image2, "Extra Image 2"),
-        (extra_image3, "Extra Image 3"),
-        (extra_image4, "Extra Image 4"),
-        (extra_image5, "Extra Image 5")
+        (os.path.normpath(os.path.join(app.config['UPLOAD_FOLDER'], data["Images"]["fileUpload"])) if data["Images"]["fileUpload"] else None, "Primary Image"),
+        (os.path.normpath(os.path.join(app.config['UPLOAD_FOLDER'], data["Images"]["extraImage1"])) if data["Images"]["extraImage1"] else None, "Extra Image 1"),
+        (os.path.normpath(os.path.join(app.config['UPLOAD_FOLDER'], data["Images"]["extraImage2"])) if data["Images"]["extraImage2"] else None, "Extra Image 2"),
+        (os.path.normpath(os.path.join(app.config['UPLOAD_FOLDER'], data["Images"]["extraImage3"])) if data["Images"]["extraImage3"] else None, "Extra Image 3"),
+        (os.path.normpath(os.path.join(app.config['UPLOAD_FOLDER'], data["Images"]["extraImage4"])) if data["Images"]["extraImage4"] else None, "Extra Image 4"),
+        (os.path.normpath(os.path.join(app.config['UPLOAD_FOLDER'], data["Images"]["extraImage5"])) if data["Images"]["extraImage5"] else None, "Extra Image 5")
     ]
 
+    logging.debug(f"Image paths for PDF: {[img[0] for img in images if img[0]]}")
     for i, (img_path, img_name) in enumerate(images):
         x_pos, y_pos = img_positions[i]
-        # Draw a placeholder rectangle
         c.setLineWidth(1)
         c.setStrokeColor(colors.grey)
         c.rect(x_pos, y_pos, img_width, img_height)
-        if img_path and os.path.exists(img_path):
-            try:
-                c.drawImage(img_path, x_pos, y_pos, width=img_width, height=img_height, preserveAspectRatio=True)
-            except Exception as e:
-                logging.error(f"Could not load {img_name}: {e}")
+        if img_path:
+            logging.debug(f"Checking image: {img_path}, exists: {os.path.exists(img_path)}")
+            if os.path.exists(img_path):
+                try:
+                    c.drawImage(img_path, x_pos, y_pos, width=img_width, height=img_height, preserveAspectRatio=True)
+                    logging.debug(f"Successfully loaded {img_name} at {img_path}")
+                except Exception as e:
+                    logging.error(f"Failed to load {img_name} at {img_path}: {e}")
+            else:
+                logging.error(f"Image file not found for {img_name}: {img_path}")
 
-    # Footer on the second page
-    footer_y = y - 3 * (img_height + img_spacing_y) - 30
+    y = y - 3 * (img_height + img_spacing_y) - 28
+    c.setFont("Helvetica", 8)
+    max_width = 490
+
+    c.drawString(50, y, "Name of Cardholder: __________________________")
+    y -= 12
+
+    auth_text = (
+        "If payment is made by credit card, I hereby authorize Home-Rail Ltd. to credit the "
+        "balance of the proposal upon completion with the above credit card. Home-Rail Ltd. "
+        "shall not be responsible for any delays resulting from strikes, fires, accidents, or "
+        "shipping/freight delays beyond its reasonable control."
+    )
+    auth_lines = wrap_text(c, auth_text, max_width, "Helvetica", 8)
+    for line in auth_lines:
+        c.drawString(50, y, line)
+        y -= 6
+    y -= 6
+
+    accept_text = (
+        "Acceptance of Proposal – The above prices, specifications, and conditions are "
+        "satisfactory and hereby accepted. You are authorized to do the work as specified. "
+        "Payment will be as outlined above."
+    )
+    accept_lines = wrap_text(c, accept_text, max_width, "Helvetica", 8)
+    for line in accept_lines:
+        c.drawString(50, y, line)
+        y -= 6
+    y -= 6
+
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(50, y, "Signature: X___________________________")
+    c.drawString(300, y, "Date of Acceptance: ___________________")
+    y -= 6
+    c.drawString(50, y, "Signature: ____________________________")
+    c.drawString(300, y, "Date: ________________________________")
+    y -= 6
+
+    footer_y = y - 10
     c.setFont("Helvetica-Oblique", 8)
     quoted_by = data.get("QuotedBy") or "System"
     c.drawString(50, footer_y, f"Home-Rail Ltd. | www.homerailltd.com | Quote Generated by {quoted_by}")
