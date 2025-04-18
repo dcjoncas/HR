@@ -262,6 +262,8 @@ def submit_quote():
 
     images_data = {}
     for field, suffix in image_fields:
+        # Check if force reload is requested
+        force_reload = data.get("forceReloadImages", "off") == "on"
         # Check for new upload first
         new_filename = save_uploaded_image(field, quote_id, suffix)
         if new_filename:
@@ -269,9 +271,15 @@ def submit_quote():
         else:
             # Use existing filename from hidden input if no new upload
             existing_filename = data.get(f"{field}_existing")
-            if existing_filename and os.path.exists(os.path.join(app.config['UPLOAD_FOLDER'], existing_filename)):
-                images_data[field] = existing_filename
-                logging.debug(f"Using existing image for {field}: {existing_filename}")
+            # Revalidate the existing filename if force reload is checked or if file exists
+            if existing_filename and (force_reload or os.path.exists(os.path.join(app.config['UPLOAD_FOLDER'], existing_filename))):
+                validated_filename = get_existing_image(existing_filename)
+                if validated_filename:
+                    images_data[field] = validated_filename
+                    logging.debug(f"Using existing image for {field}: {validated_filename}")
+                else:
+                    images_data[field] = None
+                    logging.debug(f"Existing image not found for {field}: {existing_filename}")
             else:
                 images_data[field] = None
                 logging.debug(f"No valid existing image for {field}")
