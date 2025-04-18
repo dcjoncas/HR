@@ -15,9 +15,18 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
 
 app = Flask(__name__)
 base_dir = os.path.abspath(os.path.dirname(__file__))
-upload_folder = os.path.normpath(os.path.join(base_dir, "static", "Uploads"))
-pdf_output_folder = os.path.normpath(os.path.join(base_dir, "static"))
-images_folder = os.path.normpath(os.path.join(base_dir, "static", "images"))
+
+# Use persistent disk for storage
+persistent_folder = "/persistent"
+os.makedirs(persistent_folder, exist_ok=True)
+
+# Define storage folders within persistent disk
+upload_folder = os.path.join(persistent_folder, "uploads")
+pdf_output_folder = os.path.join(persistent_folder, "pdfs")
+quote_store_path = os.path.join(persistent_folder, "quote_data.json")
+
+# Static images are still in the app directory
+images_folder = os.path.join(base_dir, "static", "images")
 
 # Define paths to images
 logo_path = os.path.join(images_folder, "logo.png")
@@ -30,7 +39,7 @@ mastercard_logo_path = os.path.join(images_folder, "mastercard_logo.png")
 app.config['UPLOAD_FOLDER'] = upload_folder
 app.config['SECRET_KEY'] = 'secret'
 
-# Ensure upload folder exists
+# Ensure folders exist
 os.makedirs(upload_folder, exist_ok=True)
 os.makedirs(pdf_output_folder, exist_ok=True)
 logging.debug(f"Upload folder initialized: {upload_folder}, exists: {os.path.exists(upload_folder)}")
@@ -51,7 +60,6 @@ def save_quote_version(quote_data, quote_id):
     entry = {"id": quote_id, "timestamp": timestamp, "data": quote_data}
 
     existing = []
-    quote_store_path = os.path.join(base_dir, "quote_data.json")
     if os.path.exists(quote_store_path):
         with open(quote_store_path, "r") as f:
             try:
@@ -149,7 +157,6 @@ def wrap_text(c, text, max_width, font_name, font_size):
 @app.route('/')
 def index():
     quotes = []
-    quote_store_path = os.path.join(base_dir, "quote_data.json")
     if os.path.exists(quote_store_path):
         with open(quote_store_path, "r") as f:
             try:
@@ -230,7 +237,7 @@ def submit_quote():
         if file and allowed_file(file.filename):
             ext = secure_filename(file.filename).rsplit('.', 1)[1].lower()
             filename = f"{quote_id}_{suffix}.{ext}"
-            path = os.path.normpath(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             try:
                 file.save(path)
                 if os.path.exists(path):
@@ -300,7 +307,7 @@ def submit_quote():
         pdf_filename += f"_{safe_address}"
     pdf_filename += ".pdf"
     
-    pdf_path = os.path.normpath(os.path.join(pdf_output_folder, pdf_filename))
+    pdf_path = os.path.join(pdf_output_folder, pdf_filename)
 
     c = canvas.Canvas(pdf_path, pagesize=letter)
     width, height = letter
@@ -503,12 +510,12 @@ def submit_quote():
     ]
 
     images = [
-        (os.path.normpath(os.path.join(app.config['UPLOAD_FOLDER'], data["Images"]["fileUpload"])) if data["Images"]["fileUpload"] else None, "Primary Image"),
-        (os.path.normpath(os.path.join(app.config['UPLOAD_FOLDER'], data["Images"]["extraImage1"])) if data["Images"]["extraImage1"] else None, "Extra Image 1"),
-        (os.path.normpath(os.path.join(app.config['UPLOAD_FOLDER'], data["Images"]["extraImage2"])) if data["Images"]["extraImage2"] else None, "Extra Image 2"),
-        (os.path.normpath(os.path.join(app.config['UPLOAD_FOLDER'], data["Images"]["extraImage3"])) if data["Images"]["extraImage3"] else None, "Extra Image 3"),
-        (os.path.normpath(os.path.join(app.config['UPLOAD_FOLDER'], data["Images"]["extraImage4"])) if data["Images"]["extraImage4"] else None, "Extra Image 4"),
-        (os.path.normpath(os.path.join(app.config['UPLOAD_FOLDER'], data["Images"]["extraImage5"])) if data["Images"]["extraImage5"] else None, "Extra Image 5")
+        (os.path.join(app.config['UPLOAD_FOLDER'], data["Images"]["fileUpload"]) if data["Images"]["fileUpload"] else None, "Primary Image"),
+        (os.path.join(app.config['UPLOAD_FOLDER'], data["Images"]["extraImage1"]) if data["Images"]["extraImage1"] else None, "Extra Image 1"),
+        (os.path.join(app.config['UPLOAD_FOLDER'], data["Images"]["extraImage2"]) if data["Images"]["extraImage2"] else None, "Extra Image 2"),
+        (os.path.join(app.config['UPLOAD_FOLDER'], data["Images"]["extraImage3"]) if data["Images"]["extraImage3"] else None, "Extra Image 3"),
+        (os.path.join(app.config['UPLOAD_FOLDER'], data["Images"]["extraImage4"]) if data["Images"]["extraImage4"] else None, "Extra Image 4"),
+        (os.path.join(app.config['UPLOAD_FOLDER'], data["Images"]["extraImage5"]) if data["Images"]["extraImage5"] else None, "Extra Image 5")
     ]
 
     logging.debug(f"Image paths for PDF: {[img[0] for img in images if img[0]]}")
@@ -580,7 +587,6 @@ def submit_quote():
 
 @app.route('/delete/<quote_id>', methods=['DELETE'])
 def delete_quote(quote_id):
-    quote_store_path = os.path.join(base_dir, "quote_data.json")
     if not os.path.exists(quote_store_path):
         return jsonify({"error": "No quotes stored."}), 404
 
