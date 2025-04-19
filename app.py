@@ -163,7 +163,6 @@ def index():
                 quotes = json.load(f)
             except json.JSONDecodeError:
                 quotes = []
-        # Validate image filenames
         for quote in quotes:
             images = quote["data"].get("Images", {})
             for key in images:
@@ -179,6 +178,7 @@ def submit_quote():
     quote_id = data.get("quoteId", "")
     
     logging.debug(f"Form data received: {data}")
+    logging.debug(f"Request files: {list(request.files.keys())}")
 
     if not client_name:
         return "Client name is required.", 400
@@ -253,7 +253,7 @@ def submit_quote():
             logging.debug(f"No file or invalid file for {field_name}")
         return None
 
-    # Use existing filenames from hidden inputs if no new upload
+    # Use existing filenames from form data or quote_data.json if available
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     if not quote_id:
         quote_id = f"{client_name.replace(' ', '_')}_{timestamp}"
@@ -268,28 +268,51 @@ def submit_quote():
     ]
 
     images_data = {}
+    # Load existing quote data if quote_id is provided
+    existing_images = {}
+    if quote_id:
+        if os.path.exists(quote_store_path):
+            with open(quote_store_path, "r") as f:
+                try:
+                    quotes = json.load(f)
+                    for quote in quotes:
+                        if quote["id"] == quote_id:
+                            existing_images = quote["data"].get("Images", {})
+                            break
+                except json.JSONDecodeError:
+                    logging.error("Failed to parse quote_data.json")
+
     for field, suffix in image_fields:
-        # Check if force reload is requested
-        force_reload = data.get("forceReloadImages", "off") == "on"
         # Check for new upload first
         new_filename = save_uploaded_image(field, quote_id, suffix)
         if new_filename:
             images_data[field] = new_filename
+            logging.debug(f"New image uploaded for {field}: {new_filename}")
         else:
-            # Use existing filename from hidden input if no new upload
+            # Use existing filename from form data
             existing_filename = data.get(f"{field}_existing")
-            # Revalidate the existing filename if force reload is checked or if file exists
-            if existing_filename and (force_reload or os.path.exists(os.path.join(app.config['UPLOAD_FOLDER'], existing_filename))):
+            if existing_filename:
                 validated_filename = get_existing_image(existing_filename)
                 if validated_filename:
                     images_data[field] = validated_filename
-                    logging.debug(f"Using existing image for {field}: {validated_filename}")
+                    logging.debug(f"Using form-provided existing image for {field}: {validated_filename}")
+                else:
+                    logging.debug(f"Form-provided existing image not found for {field}: {existing_filename}")
+                    images_data[field] = None
+            else:
+                # Fallback to quote_data.json if no form-provided filename
+                existing_filename = existing_images.get(field)
+                if existing_filename:
+                    validated_filename = get_existing_image(existing_filename)
+                    if validated_filename:
+                        images_data[field] = validated_filename
+                        logging.debug(f"Using quote_data.json image for {field}: {validated_filename}")
+                    else:
+                        logging.debug(f"quote_data.json image not found for {field}: {existing_filename}")
+                        images_data[field] = None
                 else:
                     images_data[field] = None
-                    logging.debug(f"Existing image not found for {field}: {existing_filename}")
-            else:
-                images_data[field] = None
-                logging.debug(f"No valid existing image for {field}")
+                    logging.debug(f"No existing image for {field}")
 
     data["Images"] = images_data
     data["Products"] = products
@@ -298,7 +321,7 @@ def submit_quote():
     safe_name = "".join(c for c in client_name if c.isalnum() or c in (' ', '_')).rstrip().replace(' ', '_')
     safe_address = ""
     if client_address:
-        address_parts = client_address.split(',')[0].split()
+        address_parts = client资深玩家 client_address.split(',')[0].split()
         if address_parts:
             safe_address = "".join(c for c in address_parts[0] if c.isalnum()).rstrip()
     

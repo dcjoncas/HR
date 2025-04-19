@@ -459,6 +459,7 @@
               <option>68 mm Vinyl</option>
               <option>Topless Glass 42" High</option>
               <option>Urban 42" High</option>
+             
               <option>Glass Gate</option>
               <option>Side Mount Glass 42 clear</option>
               <option>Side mount Picket 42</option>
@@ -530,13 +531,32 @@
 
         const form = document.getElementById("quoteForm");
         document.getElementById("quoteId").value = id;
+
+        // Clear existing form data
+        form.reset();
+        const productEntries = document.getElementById("productEntries");
+        productEntries.innerHTML = "";
+        productCount = 0;
+
+        // Reset drop zones
+        document.querySelectorAll(".drop-zone").forEach((dropZone) => {
+          const fileInput = dropZone.querySelector("input[type='file']");
+          const hiddenInput = dropZone.querySelector("input[type='hidden']");
+          const fileNameDiv = dropZone.querySelector(".file-name");
+          const dropText = dropZone.querySelector(".drop-text");
+          fileInput.value = "";
+          hiddenInput.value = "";
+          fileNameDiv.textContent = "";
+          dropText.textContent =
+            dropZone.contains(fileInput) && fileInput.name === "fileUpload"
+              ? "Drag & Drop or Click to Upload Image"
+              : "Drag & Drop or Click to Upload";
+        });
+
+        // Populate form fields
         for (const key in data) {
           if (key === "Products") {
             const products = data[key];
-            const container = document.getElementById("productEntries");
-            container.innerHTML = "";
-            productCount = 0;
-
             products.forEach((product, index) => {
               const newRow = document.createElement("div");
               newRow.className = "product-row";
@@ -598,7 +618,7 @@
                 </div>
                 <button type="button" class="remove-product" onclick="removeProduct(this)">Remove</button>
               `;
-              container.appendChild(newRow);
+              productEntries.appendChild(newRow);
               newRow.querySelector(
                 `select[name="Products[${index}][Product]"]`
               ).value = product.Product || "";
@@ -614,28 +634,22 @@
               const dropZone = document.querySelector(
                 `input[name="${field}"]`
               ).parentElement;
-
               if (filename) {
+                hiddenInput.value = filename;
                 dropZone.querySelector(
                   ".file-name"
                 ).textContent = `Uploaded: ${filename}`;
                 dropZone.querySelector(".drop-text").textContent =
                   "Replace Image";
-                hiddenInput.value = filename; // Store the value for later submission.
-              } else {
-                hiddenInput.value = "";
-                dropZone.querySelector(".file-name").textContent = ""; // Clear filename
-                dropZone.querySelector(".drop-text").textContent =
-                  "Drag & Drop or Click to Upload"; // Restore text
               }
             }
           } else {
             const el = form.elements.namedItem(key);
-            if (el) el.value = data[key];
+            if (el) el.value = data[key] || "";
           }
         }
       }
-      s;
+
       function deleteQuote(id) {
         if (confirm("Are you sure you want to delete this quote?")) {
           fetch(`/delete/${id}`, { method: "DELETE" })
@@ -697,20 +711,25 @@
             const hiddenInput = document.getElementById(
               `${this.name}_existing`
             );
+
             if (this.files.length > 0) {
               fileNameDiv.textContent = `Uploaded: ${this.files[0].name}`;
               dropText.textContent = "Replace Image";
-              if (hiddenInput) {
-                hiddenInput.value = "";
-              }
-            } else {
-              fileNameDiv.textContent = "";
-              dropText.textContent = "Drag & Drop or Click to Upload Image";
-              if (hiddenInput) {
-                hiddenInput.value = "";
-              }
+              hiddenInput.value = ""; // Clear existing filename only when a new file is selected
             }
           });
+        });
+
+      // Debug form submission
+      document
+        .getElementById("quoteForm")
+        .addEventListener("submit", function (event) {
+          const formData = new FormData(this);
+          const data = {};
+          for (const [key, value] of formData.entries()) {
+            data[key] = value;
+          }
+          console.log("Form data submitted:", data);
         });
     </script>
   </body>
