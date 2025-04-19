@@ -321,7 +321,7 @@ def submit_quote():
     safe_name = "".join(c for c in client_name if c.isalnum() or c in (' ', '_')).rstrip().replace(' ', '_')
     safe_address = ""
     if client_address:
-        address_parts = client资深玩家 client_address.split(',')[0].split()
+        address_parts = client_address.split(',')[0].split()
         if address_parts:
             safe_address = "".join(c for c in address_parts[0] if c.isalnum()).rstrip()
     
@@ -607,6 +607,48 @@ def submit_quote():
         return "Failed to generate PDF.", 500
 
     return send_file(pdf_path, as_attachment=True)
+
+@app.route('/retrieve/<quote_id>', methods=['GET'])
+def retrieve_quote(quote_id):
+    if not os.path.exists(quote_store_path):
+        return jsonify({"error": "No quotes stored."}), 404
+
+    with open(quote_store_path, "r") as f:
+        try:
+            quotes = json.load(f)
+        except json.JSONDecodeError:
+            return jsonify({"error": "Failed to parse quote data."}), 500
+
+    quote_data = None
+    for quote in quotes:
+        if quote["id"] == quote_id:
+            quote_data = quote["data"]
+            break
+
+    if not quote_data:
+        return jsonify({"error": "Quote not found."}), 404
+
+    client_name = quote_data.get("ClientName", "")
+    client_address = quote_data.get("Address", "")
+
+    safe_name = "".join(c for c in client_name if c.isalnum() or c in (' ', '_')).rstrip().replace(' ', '_')
+    safe_address = ""
+    if client_address:
+        address_parts = client_address.split(',')[0].split()
+        if address_parts:
+            safe_address = "".join(c for c in address_parts[0] if c.isalnum()).rstrip()
+
+    pdf_filename = f"quote_{safe_name}"
+    if safe_address:
+        pdf_filename += f"_{safe_address}"
+    pdf_filename += ".pdf"
+
+    pdf_path = os.path.join(pdf_output_folder, pdf_filename)
+
+    if os.path.exists(pdf_path):
+        return send_file(pdf_path, as_attachment=True)
+    else:
+        return jsonify({"error": "PDF not found for this quote."}), 404
 
 @app.route('/delete/<quote_id>', methods=['DELETE'])
 def delete_quote(quote_id):

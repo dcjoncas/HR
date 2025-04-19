@@ -103,6 +103,10 @@
         background-color: darkred;
       }
 
+      .quote-entry button.retrieve {
+        background-color: #4caf50;
+      }
+
       .drop-zone {
         border: 2px dashed #0d3c61;
         padding: 20px;
@@ -424,6 +428,13 @@
             </button>
             <button
               type="button"
+              class="retrieve"
+              onclick="retrieveQuote('{{ q.id }}')"
+            >
+              Retrieve PDF
+            </button>
+            <button
+              type="button"
               class="delete"
               onclick="deleteQuote('{{ q.id }}')"
             >
@@ -459,7 +470,6 @@
               <option>68 mm Vinyl</option>
               <option>Topless Glass 42" High</option>
               <option>Urban 42" High</option>
-             
               <option>Glass Gate</option>
               <option>Side Mount Glass 42 clear</option>
               <option>Side mount Picket 42</option>
@@ -648,6 +658,15 @@
             if (el) el.value = data[key] || "";
           }
         }
+      }
+
+      function retrieveQuote(id) {
+        const data = savedQuotes[id];
+        if (!data) {
+          alert("Quote not found.");
+          return;
+        }
+        window.location.href = `/retrieve/${id}`;
       }
 
       function deleteQuote(id) {
