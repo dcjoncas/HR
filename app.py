@@ -4,7 +4,6 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 import os
-import datetime
 import json
 import re
 import logging
@@ -16,35 +15,31 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
 app = Flask(__name__)
 base_dir = os.path.abspath(os.path.dirname(__file__))
 
-# Use persistent disk for storage
-persistent_folder = "/persistent"
-os.makedirs(persistent_folder, exist_ok=True)
-
-# Define storage folders within persistent disk
-upload_folder = os.path.join(persistent_folder, "uploads")
-pdf_output_folder = os.path.join(persistent_folder, "pdfs")
-quote_store_path = os.path.join(persistent_folder, "quote_data.json")
+# Hardcode persistent disk paths
+UPLOAD_FOLDER = "/persistent/uploads"
+PDF_OUTPUT_FOLDER = "/persistent/pdfs"
+QUOTE_STORE_PATH = "/persistent/quote_data.json"
 
 # Static images are in the app directory
-images_folder = os.path.join(base_dir, "static", "images")
+IMAGES_FOLDER = os.path.join(base_dir, "static", "images")
 
 # Define paths to static images
-logo_path = os.path.join(images_folder, "logo.png")
-chba_logo_path = os.path.join(images_folder, "CHB.png")
-wcb_logo_path = os.path.join(images_folder, "wcb.png")
-visa_logo_path = os.path.join(images_folder, "visa.png")
-amex_logo_path = os.path.join(images_folder, "amex_logo.png")
-mastercard_logo_path = os.path.join(images_folder, "mastercard_logo.png")
+LOGO_PATH = os.path.join(IMAGES_FOLDER, "logo.png")
+CHBA_LOGO_PATH = os.path.join(IMAGES_FOLDER, "CHB.png")
+WCB_LOGO_PATH = os.path.join(IMAGES_FOLDER, "wcb.png")
+VISA_LOGO_PATH = os.path.join(IMAGES_FOLDER, "visa.png")
+AMEX_LOGO_PATH = os.path.join(IMAGES_FOLDER, "amex_logo.png")
+MASTERCARD_LOGO_PATH = os.path.join(IMAGES_FOLDER, "mastercard_logo.png")
 
-app.config['UPLOAD_FOLDER'] = upload_folder
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['SECRET_KEY'] = 'secret'
 
 # Ensure folders exist
-os.makedirs(upload_folder, exist_ok=True)
-os.makedirs(pdf_output_folder, exist_ok=True)
-logging.debug(f"Upload folder: {upload_folder}, exists: {os.path.exists(upload_folder)}")
-logging.debug(f"PDF output folder: {pdf_output_folder}, exists: {os.path.exists(pdf_output_folder)}")
-logging.debug(f"Quote store path: {quote_store_path}, exists: {os.path.exists(quote_store_path)}")
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(PDF_OUTPUT_FOLDER, exist_ok=True)
+logging.debug(f"Upload folder: {UPLOAD_FOLDER}, exists: {os.path.exists(UPLOAD_FOLDER)}")
+logging.debug(f"PDF output folder: {PDF_OUTPUT_FOLDER}, exists: {os.path.exists(PDF_OUTPUT_FOLDER)}")
+logging.debug(f"Quote store path: {QUOTE_STORE_PATH}, exists: {os.path.exists(QUOTE_STORE_PATH)}")
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ['png', 'jpg', 'jpeg', 'gif']
@@ -52,7 +47,7 @@ def allowed_file(filename):
 def get_existing_image(filename):
     """Validate if an image file exists in the upload folder."""
     if filename:
-        path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        path = os.path.join(UPLOAD_FOLDER, filename)
         if os.path.exists(path):
             logging.debug(f"Image found: {path}")
             return filename
@@ -61,15 +56,12 @@ def get_existing_image(filename):
     return None
 
 def save_quote_version(quote_data, quote_id):
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    # Only generate new quote_id if none provided
-    if not quote_id:
-        quote_id = f"{quote_data['ClientName'].replace(' ', '_')}_{timestamp}"
-    entry = {"id": quote_id, "timestamp": timestamp, "data": quote_data}
+    """Save or update quote in quote_data.json."""
+    entry = {"id": quote_id, "data": quote_data}
 
     existing = []
-    if os.path.exists(quote_store_path):
-        with open(quote_store_path, "r") as f:
+    if os.path.exists(QUOTE_STORE_PATH):
+        with open(QUOTE_STORE_PATH, "r") as f:
             try:
                 existing = json.load(f)
             except json.JSONDecodeError:
@@ -85,7 +77,7 @@ def save_quote_version(quote_data, quote_id):
     if not updated:
         existing.append(entry)
 
-    with open(quote_store_path, "w") as f:
+    with open(QUOTE_STORE_PATH, "w") as f:
         json.dump(existing, f, indent=2)
 
     logging.debug(f"Saved quote with ID: {quote_id}, Images: {quote_data.get('Images', {})}")
@@ -100,50 +92,50 @@ def draw_header(c, width, height):
     payment_logo_height = 30
 
     try:
-        if os.path.exists(logo_path):
-            c.drawImage(logo_path, 40, height - 60, width=logo_width, height=logo_height, preserveAspectRatio=True)
+        if os.path.exists(LOGO_PATH):
+            c.drawImage(LOGO_PATH, 40, height - 60, width=logo_width, height=logo_height, preserveAspectRatio=True)
         else:
-            logging.error(f"Home Rail logo file not found at: {logo_path}")
+            logging.error(f"Home Rail logo file not found at: {LOGO_PATH}")
     except Exception as e:
         logging.error(f"Could not load Home Rail logo: {e}")
 
     try:
-        if os.path.exists(chba_logo_path):
-            c.drawImage(chba_logo_path, 220, height - 60, width=small_logo_width, height=small_logo_height, preserveAspectRatio=True)
+        if os.path.exists(CHBA_LOGO_PATH):
+            c.drawImage(CHBA_LOGO_PATH, 220, height - 60, width=small_logo_width, height=small_logo_height, preserveAspectRatio=True)
         else:
-            logging.error(f"CHBA logo file not found at: {chba_logo_path}")
+            logging.error(f"CHBA logo file not found at: {CHBA_LOGO_PATH}")
     except Exception as e:
         logging.error(f"Could not load CHBA logo: {e}")
 
     try:
-        if os.path.exists(wcb_logo_path):
-            c.drawImage(wcb_logo_path, 310, height - 60, width=small_logo_width, height=small_logo_height, preserveAspectRatio=True)
+        if os.path.exists(WCB_LOGO_PATH):
+            c.drawImage(WCB_LOGO_PATH, 310, height - 60, width=small_logo_width, height=small_logo_height, preserveAspectRatio=True)
         else:
-            logging.error(f"WCB logo file not found at: {wcb_logo_path}")
+            logging.error(f"WCB logo file not found at: {WCB_LOGO_PATH}")
     except Exception as e:
         logging.error(f"Could not load WCB logo: {e}")
 
     try:
-        if os.path.exists(visa_logo_path):
-            c.drawImage(visa_logo_path, 430, height - 50, width=payment_logo_width, height=payment_logo_height, preserveAspectRatio=True)
+        if os.path.exists(VISA_LOGO_PATH):
+            c.drawImage(VISA_LOGO_PATH, 430, height - 50, width=payment_logo_width, height=payment_logo_height, preserveAspectRatio=True)
         else:
-            logging.error(f"Visa logo file not found at: {visa_logo_path}")
+            logging.error(f"Visa logo file not found at: {VISA_LOGO_PATH}")
     except Exception as e:
         logging.error(f"Could not load Visa logo: {e}")
 
     try:
-        if os.path.exists(amex_logo_path):
-            c.drawImage(amex_logo_path, 490, height - 50, width=payment_logo_width, height=payment_logo_height, preserveAspectRatio=True)
+        if os.path.exists(AMEX_LOGO_PATH):
+            c.drawImage(AMEX_LOGO_PATH, 490, height - 50, width=payment_logo_width, height=payment_logo_height, preserveAspectRatio=True)
         else:
-            logging.error(f"Amex logo file not found at: {amex_logo_path}")
+            logging.error(f"Amex logo file not found at: {AMEX_LOGO_PATH}")
     except Exception as e:
         logging.error(f"Could not load Amex logo: {e}")
 
     try:
-        if os.path.exists(mastercard_logo_path):
-            c.drawImage(mastercard_logo_path, 550, height - 50, width=payment_logo_width, height=payment_logo_height, preserveAspectRatio=True)
+        if os.path.exists(MASTERCARD_LOGO_PATH):
+            c.drawImage(MASTERCARD_LOGO_PATH, 550, height - 50, width=payment_logo_width, height=payment_logo_height, preserveAspectRatio=True)
         else:
-            logging.error(f"MasterCard logo file not found at: {mastercard_logo_path}")
+            logging.error(f"MasterCard logo file not found at: {MASTERCARD_LOGO_PATH}")
     except Exception as e:
         logging.error(f"Could not load MasterCard logo: {e}")
 
@@ -174,8 +166,8 @@ def wrap_text(c, text, max_width, font_name, font_size):
 @app.route('/')
 def index():
     quotes = []
-    if os.path.exists(quote_store_path):
-        with open(quote_store_path, "r") as f:
+    if os.path.exists(QUOTE_STORE_PATH):
+        with open(QUOTE_STORE_PATH, "r") as f:
             try:
                 quotes = json.load(f)
             except json.JSONDecodeError:
@@ -255,7 +247,7 @@ def submit_quote():
         if file and allowed_file(file.filename):
             ext = secure_filename(file.filename).rsplit('.', 1)[1].lower()
             filename = f"{quote_id}_{suffix}.{ext}"
-            path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            path = os.path.join(UPLOAD_FOLDER, filename)
             try:
                 file.save(path)
                 if os.path.exists(path):
@@ -271,10 +263,8 @@ def submit_quote():
             logging.debug(f"No file or invalid file for {field_name}")
         return None
 
-    # Use existing quote_id if provided
-    if not quote_id:
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        quote_id = f"{client_name.replace(' ', '_')}_{timestamp}"
+    # Use sanitized client_name as quote_id
+    quote_id = "".join(c for c in client_name if c.isalnum() or c in (' ', '_')).rstrip().replace(' ', '_')
 
     image_fields = [
         ('fileUpload', 'primary'),
@@ -286,20 +276,19 @@ def submit_quote():
     ]
 
     images_data = {}
-    # Load existing quote data if quote_id is provided
+    # Load existing quote data if quote_id exists
     existing_images = {}
-    if quote_id:
-        if os.path.exists(quote_store_path):
-            with open(quote_store_path, "r") as f:
-                try:
-                    quotes = json.load(f)
-                    for quote in quotes:
-                        if quote["id"] == quote_id:
-                            existing_images = quote["data"].get("Images", {})
-                            break
-                except json.JSONDecodeError:
-                    logging.error("Failed to parse quote_data.json")
-        logging.debug(f"Existing images from quote_data.json: {existing_images}")
+    if os.path.exists(QUOTE_STORE_PATH):
+        with open(QUOTE_STORE_PATH, "r") as f:
+            try:
+                quotes = json.load(f)
+                for quote in quotes:
+                    if quote["id"] == quote_id:
+                        existing_images = quote["data"].get("Images", {})
+                        break
+            except json.JSONDecodeError:
+                logging.error("Failed to parse quote_data.json")
+    logging.debug(f"Existing images from quote_data.json: {existing_images}")
 
     for field, suffix in image_fields:
         # Check for new upload first
@@ -361,19 +350,19 @@ def submit_quote():
         pdf_filename += f"_{safe_address}"
     pdf_filename += ".pdf"
     
-    pdf_path = os.path.join(pdf_output_folder, pdf_filename)
+    pdf_path = os.path.join(PDF_OUTPUT_FOLDER, pdf_filename)
 
     c = canvas.Canvas(pdf_path, pagesize=letter)
     width, height = letter
 
     logging.debug(f"Generating PDF at: {pdf_path}")
-    logging.debug(f"Static images folder: {images_folder}")
-    logging.debug(f"Home Rail Logo path: {logo_path}, exists: {os.path.exists(logo_path)}")
-    logging.debug(f"CHBA Logo path: {chba_logo_path}, exists: {os.path.exists(chba_logo_path)}")
-    logging.debug(f"WCB Logo path: {wcb_logo_path}, exists: {os.path.exists(wcb_logo_path)}")
-    logging.debug(f"Visa Logo path: {visa_logo_path}, exists: {os.path.exists(visa_logo_path)}")
-    logging.debug(f"Amex Logo path: {amex_logo_path}, exists: {os.path.exists(amex_logo_path)}")
-    logging.debug(f"MasterCard Logo path: {mastercard_logo_path}, exists: {os.path.exists(mastercard_logo_path)}")
+    logging.debug(f"Static images folder: {IMAGES_FOLDER}")
+    logging.debug(f"Home Rail Logo path: {LOGO_PATH}, exists: {os.path.exists(LOGO_PATH)}")
+    logging.debug(f"CHBA Logo path: {CHBA_LOGO_PATH}, exists: {os.path.exists(CHBA_LOGO_PATH)}")
+    logging.debug(f"WCB Logo path: {WCB_LOGO_PATH}, exists: {os.path.exists(WCB_LOGO_PATH)}")
+    logging.debug(f"Visa Logo path: {VISA_LOGO_PATH}, exists: {os.path.exists(VISA_LOGO_PATH)}")
+    logging.debug(f"Amex Logo path: {AMEX_LOGO_PATH}, exists: {os.path.exists(AMEX_LOGO_PATH)}")
+    logging.debug(f"MasterCard Logo path: {MASTERCARD_LOGO_PATH}, exists: {os.path.exists(MASTERCARD_LOGO_PATH)}")
 
     draw_header(c, width, height)
 
@@ -564,12 +553,12 @@ def submit_quote():
     ]
 
     images = [
-        (os.path.join(app.config['UPLOAD_FOLDER'], data["Images"]["fileUpload"]) if data["Images"]["fileUpload"] else None, "Primary Image"),
-        (os.path.join(app.config['UPLOAD_FOLDER'], data["Images"]["extraImage1"]) if data["Images"]["extraImage1"] else None, "Extra Image 1"),
-        (os.path.join(app.config['UPLOAD_FOLDER'], data["Images"]["extraImage2"]) if data["Images"]["extraImage2"] else None, "Extra Image 2"),
-        (os.path.join(app.config['UPLOAD_FOLDER'], data["Images"]["extraImage3"]) if data["Images"]["extraImage3"] else None, "Extra Image 3"),
-        (os.path.join(app.config['UPLOAD_FOLDER'], data["Images"]["extraImage4"]) if data["Images"]["extraImage4"] else None, "Extra Image 4"),
-        (os.path.join(app.config['UPLOAD_FOLDER'], data["Images"]["extraImage5"]) if data["Images"]["extraImage5"] else None, "Extra Image 5")
+        (os.path.join(UPLOAD_FOLDER, data["Images"]["fileUpload"]) if data["Images"]["fileUpload"] else None, "Primary Image"),
+        (os.path.join(UPLOAD_FOLDER, data["Images"]["extraImage1"]) if data["Images"]["extraImage1"] else None, "Extra Image 1"),
+        (os.path.join(UPLOAD_FOLDER, data["Images"]["extraImage2"]) if data["Images"]["extraImage2"] else None, "Extra Image 2"),
+        (os.path.join(UPLOAD_FOLDER, data["Images"]["extraImage3"]) if data["Images"]["extraImage3"] else None, "Extra Image 3"),
+        (os.path.join(UPLOAD_FOLDER, data["Images"]["extraImage4"]) if data["Images"]["extraImage4"] else None, "Extra Image 4"),
+        (os.path.join(UPLOAD_FOLDER, data["Images"]["extraImage5"]) if data["Images"]["extraImage5"] else None, "Extra Image 5")
     ]
 
     logging.debug(f"Image paths for PDF: {[img[0] for img in images if img[0]]}")
@@ -650,11 +639,11 @@ def debug_submit():
 
 @app.route('/retrieve/<quote_id>', methods=['GET'])
 def retrieve_quote(quote_id):
-    if not os.path.exists(quote_store_path):
+    if not os.path.exists(QUOTE_STORE_PATH):
         logging.error("Quote store not found.")
         return jsonify({"error": "No quotes stored."}), 404
 
-    with open(quote_store_path, "r") as f:
+    with open(QUOTE_STORE_PATH, "r") as f:
         try:
             quotes = json.load(f)
         except json.JSONDecodeError:
@@ -686,7 +675,7 @@ def retrieve_quote(quote_id):
         pdf_filename += f"_{safe_address}"
     pdf_filename += ".pdf"
 
-    pdf_path = os.path.join(pdf_output_folder, pdf_filename)
+    pdf_path = os.path.join(PDF_OUTPUT_FOLDER, pdf_filename)
 
     if os.path.exists(pdf_path):
         logging.debug(f"Retrieving PDF: {pdf_path}")
@@ -697,16 +686,16 @@ def retrieve_quote(quote_id):
 
 @app.route('/delete/<quote_id>', methods=['DELETE'])
 def delete_quote(quote_id):
-    if not os.path.exists(quote_store_path):
+    if not os.path.exists(QUOTE_STORE_PATH):
         logging.error("Quote store not found.")
         return jsonify({"error": "No quotes stored."}), 404
 
-    with open(quote_store_path, "r") as f:
+    with open(QUOTE_STORE_PATH, "r") as f:
         quotes = json.load(f)
 
     updated_quotes = [q for q in quotes if q["id"] != quote_id]
 
-    with open(quote_store_path, "w") as f:
+    with open(QUOTE_STORE_PATH, "w") as f:
         json.dump(updated_quotes, f, indent=2)
 
     logging.debug(f"Deleted quote with ID: {quote_id}")

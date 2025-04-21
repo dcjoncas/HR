@@ -421,7 +421,7 @@
             data-name="{{ q.data.ClientName | lower }}"
             data-address="{{ q.data.Address | lower }}"
           >
-            <strong>{{ q.data.ClientName }}</strong> – {{ q.timestamp }}<br />
+            <strong>{{ q.data.ClientName }}</strong><br />
             <div class="address-preview">{{ q.data.Address }}</div>
             <button type="button" onclick="loadQuote('{{ q.id }}')">
               Load Quote
