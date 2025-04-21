@@ -542,8 +542,11 @@
         const form = document.getElementById("quoteForm");
         document.getElementById("quoteId").value = id;
 
-        // Clear existing form data
+        // Clear form but preserve quoteId
+        const quoteId = document.getElementById("quoteId").value;
         form.reset();
+        document.getElementById("quoteId").value = quoteId;
+
         const productEntries = document.getElementById("productEntries");
         productEntries.innerHTML = "";
         productCount = 0;
@@ -659,6 +662,12 @@
           }
         }
         console.log("Loaded quote data:", data);
+        // Log hidden input values after loading
+        document
+          .querySelectorAll(".drop-zone input[type='hidden']")
+          .forEach((input) => {
+            console.log(`Hidden input ${input.id}: ${input.value}`);
+          });
       }
 
       function retrieveQuote(id) {
@@ -736,6 +745,13 @@
               fileNameDiv.textContent = `Uploaded: ${this.files[0].name}`;
               dropText.textContent = "Replace Image";
               hiddenInput.value = ""; // Clear existing filename only when a new file is selected
+              console.log(
+                `New file selected for ${this.name}: ${this.files[0].name}`
+              );
+            } else {
+              console.log(
+                `No new file selected for ${this.name}, preserving hidden input: ${hiddenInput.value}`
+              );
             }
           });
         });

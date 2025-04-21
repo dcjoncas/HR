@@ -62,6 +62,7 @@ def get_existing_image(filename):
 
 def save_quote_version(quote_data, quote_id):
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    # Only generate new quote_id if none provided
     if not quote_id:
         quote_id = f"{quote_data['ClientName'].replace(' ', '_')}_{timestamp}"
     entry = {"id": quote_id, "timestamp": timestamp, "data": quote_data}
@@ -74,7 +75,16 @@ def save_quote_version(quote_data, quote_id):
             except json.JSONDecodeError:
                 existing = []
 
-    existing.append(entry)
+    # Update existing quote if quote_id exists, otherwise append
+    updated = False
+    for i, quote in enumerate(existing):
+        if quote["id"] == quote_id:
+            existing[i] = entry
+            updated = True
+            break
+    if not updated:
+        existing.append(entry)
+
     with open(quote_store_path, "w") as f:
         json.dump(existing, f, indent=2)
 
@@ -261,9 +271,9 @@ def submit_quote():
             logging.debug(f"No file or invalid file for {field_name}")
         return None
 
-    # Use existing filenames from form data or quote_data.json if available
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    # Use existing quote_id if provided
     if not quote_id:
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         quote_id = f"{client_name.replace(' ', '_')}_{timestamp}"
 
     image_fields = [
@@ -289,6 +299,7 @@ def submit_quote():
                             break
                 except json.JSONDecodeError:
                     logging.error("Failed to parse quote_data.json")
+        logging.debug(f"Existing images from quote_data.json: {existing_images}")
 
     for field, suffix in image_fields:
         # Check for new upload first
@@ -306,7 +317,19 @@ def submit_quote():
                     logging.debug(f"Using form-provided existing image for {field}: {validated_filename}")
                 else:
                     logging.debug(f"Form-provided existing image not found for {field}: {existing_filename}")
-                    images_data[field] = None
+                    # Fallback to quote_data.json if form-provided filename is invalid
+                    existing_filename = existing_images.get(field)
+                    if existing_filename:
+                        validated_filename = get_existing_image(existing_filename)
+                        if validated_filename:
+                            images_data[field] = validated_filename
+                            logging.debug(f"Using quote_data.json image for {field}: {validated_filename}")
+                        else:
+                            logging.debug(f"quote_data.json image not found for {field}: {existing_filename}")
+                            images_data[field] = None
+                    else:
+                        images_data[field] = None
+                        logging.debug(f"No existing image for {field}")
             else:
                 # Fallback to quote_data.json if no form-provided filename
                 existing_filename = existing_images.get(field)
@@ -495,7 +518,7 @@ def submit_quote():
             c.setFont("Helvetica", 10)
             first_page = False
 
-        c.drawString(50, y, product["Product"])
+        c.drawString(50, y W, product["Product"])
         c.drawString(250, y, product["Color"])
         c.drawString(350, y, str(product["Footage"]))
         c.drawString(420, y, f"${product['PricePerFt']:.2f}")
@@ -616,6 +639,14 @@ def submit_quote():
         return "Failed to generate PDF.", 500
 
     return send_file(pdf_path, as_attachment=True)
+
+@app.route('/debug/submit', methods=['POST'])
+def debug_submit():
+    data = {k: request.form.get(k, '').strip() for k in request.form}
+    files = {k: request.files[k].filename for k in request.files}
+    logging.debug(f"Debug form data: {data}")
+    logging.debug(f"Debug files: {files}")
+    return jsonify({"form_data": data, "files": files})
 
 @app.route('/retrieve/<quote_id>', methods=['GET'])
 def retrieve_quote(quote_id):
