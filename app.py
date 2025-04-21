@@ -518,7 +518,7 @@ def submit_quote():
             c.setFont("Helvetica", 10)
             first_page = False
 
-        c.drawString(50, y W, product["Product"])
+        c.drawString(50, y, product["Product"])
         c.drawString(250, y, product["Color"])
         c.drawString(350, y, str(product["Footage"]))
         c.drawString(420, y, f"${product['PricePerFt']:.2f}")
