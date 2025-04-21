@@ -25,10 +25,10 @@ upload_folder = os.path.join(persistent_folder, "uploads")
 pdf_output_folder = os.path.join(persistent_folder, "pdfs")
 quote_store_path = os.path.join(persistent_folder, "quote_data.json")
 
-# Static images are still in the app directory
+# Static images are in the app directory
 images_folder = os.path.join(base_dir, "static", "images")
 
-# Define paths to images
+# Define paths to static images
 logo_path = os.path.join(images_folder, "logo.png")
 chba_logo_path = os.path.join(images_folder, "CHB.png")
 wcb_logo_path = os.path.join(images_folder, "wcb.png")
@@ -42,15 +42,22 @@ app.config['SECRET_KEY'] = 'secret'
 # Ensure folders exist
 os.makedirs(upload_folder, exist_ok=True)
 os.makedirs(pdf_output_folder, exist_ok=True)
-logging.debug(f"Upload folder initialized: {upload_folder}, exists: {os.path.exists(upload_folder)}")
+logging.debug(f"Upload folder: {upload_folder}, exists: {os.path.exists(upload_folder)}")
+logging.debug(f"PDF output folder: {pdf_output_folder}, exists: {os.path.exists(pdf_output_folder)}")
+logging.debug(f"Quote store path: {quote_store_path}, exists: {os.path.exists(quote_store_path)}")
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ['png', 'jpg', 'jpeg', 'gif']
 
 def get_existing_image(filename):
     """Validate if an image file exists in the upload folder."""
-    if filename and os.path.exists(os.path.join(app.config['UPLOAD_FOLDER'], filename)):
-        return filename
+    if filename:
+        path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        if os.path.exists(path):
+            logging.debug(f"Image found: {path}")
+            return filename
+        else:
+            logging.error(f"Image not found: {path}")
     return None
 
 def save_quote_version(quote_data, quote_id):
@@ -168,6 +175,7 @@ def index():
             for key in images:
                 images[key] = get_existing_image(images[key])
             quote["data"]["Images"] = images
+    logging.debug(f"Loaded quotes: {len(quotes)}")
     return render_template('index.html', quotes=quotes)
 
 @app.route('/submit', methods=['POST'])
@@ -335,8 +343,8 @@ def submit_quote():
     c = canvas.Canvas(pdf_path, pagesize=letter)
     width, height = letter
 
-    logging.debug(f"Base directory: {base_dir}")
-    logging.debug(f"Images folder: {images_folder}")
+    logging.debug(f"Generating PDF at: {pdf_path}")
+    logging.debug(f"Static images folder: {images_folder}")
     logging.debug(f"Home Rail Logo path: {logo_path}, exists: {os.path.exists(logo_path)}")
     logging.debug(f"CHBA Logo path: {chba_logo_path}, exists: {os.path.exists(chba_logo_path)}")
     logging.debug(f"WCB Logo path: {wcb_logo_path}, exists: {os.path.exists(wcb_logo_path)}")
@@ -604,6 +612,7 @@ def submit_quote():
     c.save()
 
     if not os.path.exists(pdf_path):
+        logging.error(f"Failed to generate PDF at: {pdf_path}")
         return "Failed to generate PDF.", 500
 
     return send_file(pdf_path, as_attachment=True)
@@ -611,12 +620,14 @@ def submit_quote():
 @app.route('/retrieve/<quote_id>', methods=['GET'])
 def retrieve_quote(quote_id):
     if not os.path.exists(quote_store_path):
+        logging.error("Quote store not found.")
         return jsonify({"error": "No quotes stored."}), 404
 
     with open(quote_store_path, "r") as f:
         try:
             quotes = json.load(f)
         except json.JSONDecodeError:
+            logging.error("Failed to parse quote_data.json")
             return jsonify({"error": "Failed to parse quote data."}), 500
 
     quote_data = None
@@ -626,6 +637,7 @@ def retrieve_quote(quote_id):
             break
 
     if not quote_data:
+        logging.error(f"Quote not found for ID: {quote_id}")
         return jsonify({"error": "Quote not found."}), 404
 
     client_name = quote_data.get("ClientName", "")
@@ -646,13 +658,16 @@ def retrieve_quote(quote_id):
     pdf_path = os.path.join(pdf_output_folder, pdf_filename)
 
     if os.path.exists(pdf_path):
+        logging.debug(f"Retrieving PDF: {pdf_path}")
         return send_file(pdf_path, as_attachment=True)
     else:
+        logging.error(f"PDF not found at: {pdf_path}")
         return jsonify({"error": "PDF not found for this quote."}), 404
 
 @app.route('/delete/<quote_id>', methods=['DELETE'])
 def delete_quote(quote_id):
     if not os.path.exists(quote_store_path):
+        logging.error("Quote store not found.")
         return jsonify({"error": "No quotes stored."}), 404
 
     with open(quote_store_path, "r") as f:
@@ -663,6 +678,7 @@ def delete_quote(quote_id):
     with open(quote_store_path, "w") as f:
         json.dump(updated_quotes, f, indent=2)
 
+    logging.debug(f"Deleted quote with ID: {quote_id}")
     return jsonify({"success": True})
 
 if __name__ == '__main__':
