@@ -8,6 +8,8 @@ import json
 import re
 import logging
 import math
+import zipfile
+import io
 
 # Configure logging with detailed output
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -55,9 +57,25 @@ def get_existing_image(filename):
             logging.error(f"Image not found: {path}")
     return None
 
-def save_quote_version(quote_data, quote_id):
+def check_quote_exists(quote_id):
+    """Check if a quote_id already exists in quote_data.json."""
+    if os.path.exists(QUOTE_STORE_PATH):
+        with open(QUOTE_STORE_PATH, "r") as f:
+            try:
+                quotes = json.load(f)
+                return any(quote["id"] == quote_id for quote in quotes)
+            except json.JSONDecodeError:
+                logging.error("Failed to parse quote_data.json")
+    return False
+
+def save_quote_version(quote_data, quote_id, is_update=False):
     """Save or update quote in quote_data.json."""
-    entry = {"id": quote_id, "data": quote_data}
+    entry = {
+        "id": quote_id,
+        "data": quote_data,
+        "is_generated": True,  # Mark as generated
+        "version": 2 if is_update else 1  # Track version
+    }
 
     existing = []
     if os.path.exists(QUOTE_STORE_PATH):
@@ -80,7 +98,7 @@ def save_quote_version(quote_data, quote_id):
     with open(QUOTE_STORE_PATH, "w") as f:
         json.dump(existing, f, indent=2)
 
-    logging.debug(f"Saved quote with ID: {quote_id}, Images: {quote_data.get('Images', {})}")
+    logging.debug(f"Saved quote with ID: {quote_id}, Images: {quote_data.get('Images', {})}, Version: {entry['version']}")
     return quote_id
 
 def draw_header(c, width, height):
@@ -177,6 +195,9 @@ def index():
             for key in images:
                 images[key] = get_existing_image(images[key])
             quote["data"]["Images"] = images
+            # Set defaults for older quotes
+            quote["is_generated"] = quote.get("is_generated", False)
+            quote["version"] = quote.get("version", 1)
     logging.debug(f"Loaded quotes: {len(quotes)}")
     return render_template('index.html', quotes=quotes)
 
@@ -186,12 +207,24 @@ def submit_quote():
     client_name = data.get("ClientName")
     client_address = data.get("Address")
     quote_id = data.get("quoteId", "")
+    is_update = data.get("is_update", "") == "true"
     
     logging.debug(f"Form data received: {data}")
     logging.debug(f"Request files: {list(request.files.keys())}")
 
     if not client_name:
-        return "Client name is required.", 400
+        return jsonify({"error": "Client name is required."}), 400
+
+    # Use sanitized client_name as base quote_id
+    base_quote_id = "".join(c for c in client_name if c.isalnum() or c in (' ', '_')).rstrip().replace(' ', '_')
+    if is_update:
+        quote_id = f"{base_quote_id}_version_2"
+    else:
+        quote_id = base_quote_id if not quote_id else quote_id
+
+    # Check for duplicate quote_id for new quotes
+    if not is_update and check_quote_exists(base_quote_id):
+        return jsonify({"error": f"Quote for '{client_name}' already exists. Use 'Update Quote' to create a new version."}), 400
 
     # Process multiple products
     products = []
@@ -220,10 +253,10 @@ def submit_quote():
                 "LineTotal": line_total
             })
         except ValueError:
-            return f"Footage and Price for product {index} must be valid numbers.", 400
+            return jsonify({"error": f"Footage and Price for product {index} must be valid numbers."}), 400
 
     if not products:
-        return "At least one product is required.", 400
+        return jsonify({"error": "At least one product is required."}), 400
 
     gst_rate = 0.05
     subtotal = sum(product["LineTotal"] for product in products)
@@ -263,9 +296,6 @@ def submit_quote():
             logging.debug(f"No file or invalid file for {field_name}")
         return None
 
-    # Use sanitized client_name as quote_id
-    quote_id = "".join(c for c in client_name if c.isalnum() or c in (' ', '_')).rstrip().replace(' ', '_')
-
     image_fields = [
         ('fileUpload', 'primary'),
         ('extraImage1', 'extra1'),
@@ -283,7 +313,7 @@ def submit_quote():
             try:
                 quotes = json.load(f)
                 for quote in quotes:
-                    if quote["id"] == quote_id:
+                    if quote["id"] == quote_id or (is_update and quote["id"] == base_quote_id):
                         existing_images = quote["data"].get("Images", {})
                         break
             except json.JSONDecodeError:
@@ -336,7 +366,7 @@ def submit_quote():
 
     data["Images"] = images_data
     data["Products"] = products
-    quote_id = save_quote_version(data, quote_id)
+    quote_id = save_quote_version(data, quote_id, is_update=is_update)
 
     safe_name = "".join(c for c in client_name if c.isalnum() or c in (' ', '_')).rstrip().replace(' ', '_')
     safe_address = ""
@@ -348,6 +378,8 @@ def submit_quote():
     pdf_filename = f"quote_{safe_name}"
     if safe_address:
         pdf_filename += f"_{safe_address}"
+    if is_update:
+        pdf_filename += "_version_2"
     pdf_filename += ".pdf"
     
     pdf_path = os.path.join(PDF_OUTPUT_FOLDER, pdf_filename)
@@ -578,7 +610,7 @@ def submit_quote():
             else:
                 logging.error(f"Image file not found for {img_name}: {img_path}")
 
-    y = y - 3 * (img_height + img_spacing_y) - 28
+    y = y - 2.87 * (img_height + img_spacing_y) - 28
     c.setFont("Helvetica", 8)
     max_width = 490
 
@@ -591,6 +623,12 @@ def submit_quote():
         "shall not be responsible for any delays resulting from strikes, fires, accidents, or "
         "shipping/freight delays beyond its reasonable control."
     )
+    auth_lines = wrap_text(c, auth_text, max_width, "Helvetica", 8)
+    for line in auth_lines:
+        c.drawString(50, y, line)
+        y -= 6
+    y -= 6
+
     auth_lines = wrap_text(c, auth_text, max_width, "Helvetica", 8)
     for line in auth_lines:
         c.drawString(50, y, line)
@@ -625,7 +663,7 @@ def submit_quote():
 
     if not os.path.exists(pdf_path):
         logging.error(f"Failed to generate PDF at: {pdf_path}")
-        return "Failed to generate PDF.", 500
+        return jsonify({"error": "Failed to generate PDF."}), 500
 
     return send_file(pdf_path, as_attachment=True)
 
@@ -673,6 +711,8 @@ def retrieve_quote(quote_id):
     pdf_filename = f"quote_{safe_name}"
     if safe_address:
         pdf_filename += f"_{safe_address}"
+    if quote_id.endswith("_version_2"):
+        pdf_filename += "_version_2"
     pdf_filename += ".pdf"
 
     pdf_path = os.path.join(PDF_OUTPUT_FOLDER, pdf_filename)
@@ -683,6 +723,35 @@ def retrieve_quote(quote_id):
     else:
         logging.error(f"PDF not found at: {pdf_path}")
         return jsonify({"error": "PDF not found for this quote."}), 404
+
+@app.route('/download_all_pdfs', methods=['GET'])
+def download_all_pdfs():
+    # Create a BytesIO buffer for the zip file
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        # Iterate through all files in PDF_OUTPUT_FOLDER
+        for filename in os.listdir(PDF_OUTPUT_FOLDER):
+            if filename.endswith('.pdf'):
+                file_path = os.path.join(PDF_OUTPUT_FOLDER, filename)
+                # Add file to zip
+                zip_file.write(file_path, filename)
+                logging.debug(f"Added {filename} to zip archive")
+
+    # Reset buffer position to start
+    buffer.seek(0)
+
+    # Check if any PDFs were added
+    if not zip_file.namelist():
+        logging.error("No PDFs found in the output folder.")
+        return jsonify({"error": "No PDFs available to download."}), 404
+
+    logging.debug("Serving zip file with all PDFs")
+    return send_file(
+        buffer,
+        mimetype='application/zip',
+        as_attachment=True,
+        download_name='all_quotes.zip'
+    )
 
 @app.route('/delete/<quote_id>', methods=['DELETE'])
 def delete_quote(quote_id):

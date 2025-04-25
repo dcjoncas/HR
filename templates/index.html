@@ -77,6 +77,11 @@
         cursor: pointer;
       }
 
+      button:disabled {
+        background-color: #cccccc;
+        cursor: not-allowed;
+      }
+
       .remove-product {
         background-color: darkred;
         padding: 5px 10px;
@@ -167,13 +172,65 @@
         gap: 10px;
         margin-bottom: 10px;
       }
+
+      .new-quote-btn {
+        position: absolute;
+        top: 40px;
+        left: 20px;
+        background-color: #28a745;
+      }
+
+      .download-all-btn {
+        background-color: #4caf50;
+        float: right;
+        margin-top: -40px;
+      }
+
+      .quote-status {
+        font-size: 0.8em;
+        padding: 2px 6px;
+        border-radius: 4px;
+        margin-left: 5px;
+      }
+
+      .status-generated {
+        background-color: #4caf50;
+        color: white;
+      }
+
+      .status-version1 {
+        background-color: #2196f3;
+        color: white;
+      }
+
+      .status-version2 {
+        background-color: #ff9800;
+        color: white;
+      }
+
+      .error-message {
+        color: red;
+        font-size: 0.9em;
+        margin-bottom: 10px;
+        display: none;
+      }
+
+      .form-status {
+        font-size: 0.9em;
+        margin-bottom: 10px;
+        color: #333;
+      }
     </style>
   </head>
   <body>
+    <button class="new-quote-btn" onclick="resetForm()">New Quote</button>
     <div class="container">
       <!-- FORM SECTION -->
       <div class="form-section">
+        <br /><br />
         <h2>Home Rail Quote Form</h2>
+        <div id="formStatus" class="form-status"></div>
+        <div id="errorMessage" class="error-message"></div>
         <form
           method="POST"
           action="/submit"
@@ -181,10 +238,11 @@
           id="quoteForm"
         >
           <input type="hidden" name="quoteId" id="quoteId" value="" />
+          <input type="hidden" name="is_update" id="isUpdate" value="false" />
           <div class="row">
             <div>
               <label>Name:</label
-              ><input type="text" name="ClientName" required />
+              ><input type="text" name="ClientName" id="clientName" required />
             </div>
             <div><label>Phone:</label><input type="text" name="Phone" /></div>
           </div>
@@ -242,7 +300,7 @@
             <div class="product-row">
               <div style="flex: 2">
                 <label>Product:</label>
-                <select name="Products[0][Product]">
+                <select name="Products[0][Product]" class="product-select">
                   <option>Clear Windwall 90" 2 panel</option>
                   <option>clear windwall 72"</option>
                   <option>Stair Glass</option>
@@ -260,7 +318,7 @@
               </div>
               <div style="flex: 1">
                 <label>Color:</label>
-                <select name="Products[0][Color]">
+                <select name="Products[0][Color]" class="color-select">
                   <option>Black</option>
                   <option>White</option>
                   <option>Linen</option>
@@ -285,13 +343,19 @@
               </div>
               <div style="flex: 1">
                 <label>Footage (ft):</label>
-                <input type="number" name="Products[0][Footage]" step="0.01" />
+                <input
+                  type="number"
+                  name="Products[0][Footage]"
+                  class="footage-input"
+                  step="0.01"
+                />
               </div>
               <div style="flex: 1">
                 <label>Price per FT ($):</label>
                 <input
                   type="number"
                   name="Products[0][PricePerFt]"
+                  class="price-input"
                   step="0.01"
                 />
               </div>
@@ -394,13 +458,27 @@
             />
           </div>
 
-          <button type="submit">Generate Quote PDF</button>
+          <button type="submit" id="generateButton">Generate Quote PDF</button>
+          <button
+            type="submit"
+            id="updateButton"
+            style="display: none"
+            onclick="setUpdateFlag()"
+          >
+            Update Quote
+          </button>
         </form>
       </div>
 
       <!-- SAVED QUOTES SECTION -->
       <div class="quote-list">
         <h3>Saved Quotes</h3>
+        <button
+          class="download-all-btn"
+          onclick="window.location.href='/download_all_pdfs'"
+        >
+          Download All PDFs
+        </button>
         <input
           type="text"
           id="searchInput"
@@ -420,8 +498,18 @@
             id="quote-{{ q.id }}"
             data-name="{{ q.data.ClientName | lower }}"
             data-address="{{ q.data.Address | lower }}"
+            data-is-generated="{{ q.is_generated | default(false) | lower }}"
+            data-version="{{ q.version | default(1) }}"
           >
-            <strong>{{ q.data.ClientName }}</strong><br />
+            <strong>{{ q.data.ClientName }}</strong>
+            <span
+              class="quote-status status-version{{ q.version | default(1) }}"
+              >Version {{ q.version | default(1) }}</span
+            >
+            {% if q.is_generated | default(false) %}
+            <span class="quote-status status-generated">Generated</span>
+            {% endif %}
+            <br />
             <div class="address-preview">{{ q.data.Address }}</div>
             <button type="button" onclick="loadQuote('{{ q.id }}')">
               Load Quote
@@ -442,6 +530,8 @@
             </button>
             <script>
               savedQuotes["{{ q.id }}"] = {{ q.data | tojson | safe }};
+              savedQuotes["{{ q.id }}"].is_generated = {{ q.is_generated | default(false) | tojson | safe }};
+              savedQuotes["{{ q.id }}"].version = {{ q.version | default(1) | tojson | safe }};
             </script>
           </div>
           {% endfor %} {% else %}
@@ -461,7 +551,7 @@
         newRow.innerHTML = `
           <div style="flex: 2;">
             <label>Product:</label>
-            <select name="Products[${productCount}][Product]">
+            <select name="Products[${productCount}][Product]" class="product-select">
               <option>Clear Windwall 90" 2 panel</option>
               <option>clear windwall 72"</option>
               <option>Stair Glass</option>
@@ -479,7 +569,7 @@
           </div>
           <div style="flex: 1;">
             <label>Color:</label>
-            <select name="Products[${productCount}][Color]">
+            <select name="Products[${productCount}][Color]" class="color-select">
               <option>Black</option>
               <option>White</option>
               <option>Linen</option>
@@ -504,11 +594,11 @@
           </div>
           <div style="flex: 1;">
             <label>Footage (ft):</label>
-            <input type="number" name="Products[${productCount}][Footage]" step="0.01" />
+            <input type="number" name="Products[${productCount}][Footage]" class="footage-input" step="0.01" />
           </div>
           <div style="flex: 1;">
             <label>Price per FT ($):</label>
-            <input type="number" name="Products[${productCount}][PricePerFt]" step="0.01" />
+            <input type="number" name="Products[${productCount}][PricePerFt]" class="price-input" step="0.01" />
           </div>
           <button type="button" class="remove-product" onclick="removeProduct(this)">Remove</button>
         `;
@@ -532,6 +622,152 @@
         });
       }
 
+      function resetForm() {
+        const form = document.getElementById("quoteForm");
+        form.reset();
+        document.getElementById("quoteId").value = "";
+        document.getElementById("isUpdate").value = "false";
+        document.getElementById("generateButton").disabled = false;
+        document.getElementById("generateButton").style.display =
+          "inline-block";
+        document.getElementById("updateButton").style.display = "none";
+        document.getElementById("formStatus").textContent =
+          "Creating new quote";
+        document.getElementById("errorMessage").style.display = "none";
+        const productEntries = document.getElementById("productEntries");
+        productEntries.innerHTML = `
+          <div class="product-row">
+            <div style="flex: 2">
+              <label>Product:</label>
+              <select name="Products[0][Product]" class="product-select">
+                <option>Clear Windwall 90" 2 panel</option>
+                <option>clear windwall 72"</option>
+                <option>Stair Glass</option>
+                <option>Solar Grey Glass</option>
+                <option>Solar Grey Stairs</option>
+                <option>68 mm Vinyl</option>
+                <option>Topless Glass 42" High</option>
+                <option>Urban 42" High</option>
+                <option>Glass Gate</option>
+                <option>Side Mount Glass 42 clear</option>
+                <option>Side mount Picket 42</option>
+                <option>Wide Picket 42" High</option>
+                <option>Cross Hatch 42" High</option>
+              </select>
+            </div>
+            <div style="flex: 1">
+              <label>Color:</label>
+              <select name="Products[0][Color]" class="color-select">
+                <option>Black</option>
+                <option>White</option>
+                <option>Linen</option>
+                <option>Sable</option>
+                <option>Bronze</option>
+                <option>Silver</option>
+                <option>Brown</option>
+                <option>Granite</option>
+                <option>Natural</option>
+                <option>Sage</option>
+                <option>Platinum</option>
+                <option>Carbon</option>
+                <option>Ivory</option>
+                <option>Pebble Grey</option>
+                <option>Pebble Beige</option>
+                <option>Cypress</option>
+                <option>Mahogany</option>
+                <option>Birch Plank</option>
+                <option>Fir Plank</option>
+                <option>Unknown</option>
+              </select>
+            </div>
+            <div style="flex: 1">
+              <label>Footage (ft):</label>
+              <input type="number" name="Products[0][Footage]" class="footage-input" step="0.01" />
+            </div>
+            <div style="flex: 1">
+              <label>Price per FT ($):</label>
+              <input
+                type="number"
+                name="Products[0][PricePerFt]"
+                class="price-input"
+                step="0.01"
+              />
+            </div>
+            <button
+              type="button"
+              class="remove-product"
+              onclick="removeProduct(this)"
+              style="display: none"
+            >
+              Remove
+            </button>
+          </div>
+        `;
+        productCount = 1;
+        document.querySelectorAll(".drop-zone").forEach((dropZone) => {
+          const fileInput = dropZone.querySelector("input[type='file']");
+          const hiddenInput = dropZone.querySelector("input[type='hidden']");
+          const fileNameDiv = dropZone.querySelector(".file-name");
+          const dropText = dropZone.querySelector(".drop-text");
+          fileInput.value = "";
+          hiddenInput.value = "";
+          fileNameDiv.textContent = "";
+          dropText.textContent =
+            dropZone.contains(fileInput) && fileInput.name === "fileUpload"
+              ? "Drag & Drop or Click to Upload Image"
+              : "Drag & Drop or Click to Upload";
+        });
+        console.log("Form reset for new quote");
+      }
+
+      function setUpdateFlag() {
+        document.getElementById("isUpdate").value = "true";
+      }
+
+      function validateForm() {
+        const clientName = document.getElementById("clientName").value.trim();
+        const products = document.querySelectorAll(".product-row");
+        let errors = [];
+
+        if (!clientName) {
+          errors.push("Client name is required.");
+        }
+
+        let hasValidProduct = false;
+        products.forEach((row, index) => {
+          const footage = row.querySelector(".footage-input").value;
+          const price = row.querySelector(".price-input").value;
+          if (
+            footage &&
+            price &&
+            parseFloat(footage) > 0 &&
+            parseFloat(price) > 0
+          ) {
+            hasValidProduct = true;
+          }
+        });
+
+        if (!hasValidProduct) {
+          errors.push(
+            "At least one product with valid footage and price is required."
+          );
+        }
+
+        return errors;
+      }
+
+      function showError(message) {
+        const errorDiv = document.getElementById("errorMessage");
+        errorDiv.textContent = message;
+        errorDiv.style.display = "block";
+      }
+
+      function clearError() {
+        const errorDiv = document.getElementById("errorMessage");
+        errorDiv.textContent = "";
+        errorDiv.style.display = "none";
+      }
+
       function loadQuote(id) {
         const data = savedQuotes[id];
         if (!data) {
@@ -546,6 +782,7 @@
         const quoteId = document.getElementById("quoteId").value;
         form.reset();
         document.getElementById("quoteId").value = quoteId;
+        document.getElementById("isUpdate").value = "false";
 
         const productEntries = document.getElementById("productEntries");
         productEntries.innerHTML = "";
@@ -576,7 +813,7 @@
               newRow.innerHTML = `
                 <div style="flex: 2;">
                   <label>Product:</label>
-                  <select name="Products[${index}][Product]">
+                  <select name="Products[${index}][Product]" class="product-select">
                     <option>Clear Windwall 90" 2 panel</option>
                     <option>clear windwall 72"</option>
                     <option>Stair Glass</option>
@@ -594,7 +831,7 @@
                 </div>
                 <div style="flex: 1;">
                   <label>Color:</label>
-                  <select name="Products[${index}][Color]">
+                  <select name="Products[${index}][Color]" class="color-select">
                     <option>Black</option>
                     <option>White</option>
                     <option>Linen</option>
@@ -619,13 +856,13 @@
                 </div>
                 <div style="flex: 1;">
                   <label>Footage (ft):</label>
-                  <input type="number" name="Products[${index}][Footage]" value="${
+                  <input type="number" name="Products[${index}][Footage]" class="footage-input" value="${
                 product.Footage || ""
               }" step="0.01" />
                 </div>
                 <div style="flex: 1;">
                   <label>Price per FT ($):</label>
-                  <input type="number" name="Products[${index}][PricePerFt]" value="${
+                  <input type="number" name="Products[${index}][PricePerFt]" class="price-input" value="${
                 product.PricePerFt || ""
               }" step="0.01" />
                 </div>
@@ -661,8 +898,25 @@
             if (el) el.value = data[key] || "";
           }
         }
+
+        // Disable Generate button and show Update button if quote is generated
+        const generateButton = document.getElementById("generateButton");
+        const updateButton = document.getElementById("updateButton");
+        document.getElementById(
+          "formStatus"
+        ).textContent = `Editing Quote: ${data.ClientName} (Version ${data.version})`;
+        if (data.is_generated && data.version === 1) {
+          generateButton.disabled = true;
+          generateButton.style.display = "none";
+          updateButton.style.display = "inline-block";
+        } else {
+          generateButton.disabled = false;
+          generateButton.style.display = "inline-block";
+          updateButton.style.display = "none";
+        }
+
+        clearError();
         console.log("Loaded quote data:", data);
-        // Log hidden input values after loading
         document
           .querySelectorAll(".drop-zone input[type='hidden']")
           .forEach((input) => {
@@ -744,7 +998,7 @@
             if (this.files.length > 0) {
               fileNameDiv.textContent = `Uploaded: ${this.files[0].name}`;
               dropText.textContent = "Replace Image";
-              hiddenInput.value = ""; // Clear existing filename only when a new file is selected
+              hiddenInput.value = "";
               console.log(
                 `New file selected for ${this.name}: ${this.files[0].name}`
               );
@@ -756,16 +1010,86 @@
           });
         });
 
-      // Debug form submission
+      // Debug form submission and add confirmation
       document
         .getElementById("quoteForm")
         .addEventListener("submit", function (event) {
-          const formData = new FormData(this);
-          const data = {};
-          for (const [key, value] of formData.entries()) {
-            data[key] = value;
+          event.preventDefault();
+          clearError();
+
+          // Client-side validation
+          const errors = validateForm();
+          if (errors.length > 0) {
+            showError(errors.join(" "));
+            return;
           }
-          console.log("Form data submitted:", data);
+
+          const clientName = document.getElementById("clientName").value.trim();
+          const quoteId = document.getElementById("quoteId").value;
+          const isUpdate = document.getElementById("isUpdate").value === "true";
+          const sanitizedQuoteId = clientName
+            .replace(/[^a-zA-Z0-9 _]/g, "")
+            .replace(/\s+/g, "_");
+
+          // Confirmation for new quote
+          if (!isUpdate && !quoteId && savedQuotes[sanitizedQuoteId]) {
+            if (
+              !confirm(
+                `A quote for "${clientName}" already exists. Do you want to update it instead?`
+              )
+            ) {
+              showError(
+                "Please choose a unique client name or update the existing quote."
+              );
+              return;
+            }
+            document.getElementById("isUpdate").value = "true";
+            document.getElementById("quoteId").value = sanitizedQuoteId;
+          }
+
+          // Confirmation for update
+          if (isUpdate) {
+            if (
+              !confirm(
+                `Are you sure you want to create a new version of the quote for "${clientName}"?`
+              )
+            ) {
+              return;
+            }
+          }
+
+          const formData = new FormData(this);
+          fetch("/submit", {
+            method: "POST",
+            body: formData,
+          })
+            .then((response) => {
+              if (!response.ok) {
+                return response.json().then((err) => {
+                  throw new Error(err.error);
+                });
+              }
+              return response.blob();
+            })
+            .then((blob) => {
+              // Trigger PDF download
+              const url = window.URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `quote_${sanitizedQuoteId}${
+                isUpdate ? "_version_2" : ""
+              }.pdf`;
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+              window.URL.revokeObjectURL(url);
+              // Refresh quotes list
+              window.location.reload();
+            })
+            .catch((error) => {
+              showError(error.message);
+              console.error("Submission error:", error);
+            });
         });
     </script>
   </body>
