@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>PDF to Image Converter</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background: #f4f6f9;
+        margin: 0;
+        padding: 30px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+      }
+
+      .container {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+        max-width: 500px;
+        width: 100%;
+        text-align: center;
+      }
+
+      h2 {
+        margin-top: 0;
+      }
+
+      .drop-zone {
+        border: 2px dashed #0d3c61;
+        padding: 20px;
+        text-align: center;
+        color: #0d3c61;
+        background-color: #f8f9fb;
+        cursor: pointer;
+        margin-top: 10px;
+        margin-bottom: 20px;
+        position: relative;
+        transition: background 0.2s ease;
+      }
+
+      .drop-zone:hover {
+        background: #e9f1f9;
+      }
+
+      .drop-zone input[type="file"] {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+      }
+
+      .drop-zone-icon {
+        font-size: 2rem;
+        display: block;
+        margin-bottom: 8px;
+      }
+
+      .drop-zone .file-name {
+        font-size: 0.9em;
+        color: #333;
+        margin-top: 5px;
+        word-break: break-all;
+      }
+
+      button {
+        padding: 8px 16px;
+        font-weight: bold;
+        background-color: #0d3c61;
+        color: white;
+        border: none;
+        cursor: pointer;
+        margin-top: 10px;
+      }
+
+      a {
+        display: inline-block;
+        margin-top: 10px;
+        color: #4caf50;
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .error-message {
+        color: red;
+        font-size: 0.9em;
+        margin-top: 10px;
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>PDF to Image Converter</h2>
+      <form
+        method="POST"
+        action="/convert_pdf"
+        enctype="multipart/form-data"
+        id="pdfForm"
+      >
+        <div class="drop-zone">
+          <div class="drop-zone-icon">📄</div>
+          <div class="drop-text">Drag & Drop or Click to Upload PDF</div>
+          <div class="file-name"></div>
+          <input type="file" name="pdfUpload" accept="application/pdf" />
+        </div>
+        <button type="submit">Convert PDF to Image</button>
+      </form>
+      <div id="downloadLink" style="display: none">
+        <a href="" id="downloadImageLink">Download Converted Image</a>
+      </div>
+      <div id="errorMessage" class="error-message"></div>
+    </div>
+
+    <script>
+      document
+        .querySelector("input[name='pdfUpload']")
+        .addEventListener("change", function () {
+          const dropZone = this.parentElement;
+          const fileNameDiv = dropZone.querySelector(".file-name");
+          const dropText = dropZone.querySelector(".drop-text");
+
+          if (this.files.length > 0) {
+            fileNameDiv.textContent = `Uploaded: ${this.files[0].name}`;
+            dropText.textContent = "Replace PDF";
+            console.log(`Selected PDF: ${this.files[0].name}`);
+          }
+        });
+
+      document
+        .getElementById("pdfForm")
+        .addEventListener("submit", function (event) {
+          event.preventDefault();
+          const errorDiv = document.getElementById("errorMessage");
+          errorDiv.style.display = "none";
+          errorDiv.textContent = "";
+
+          const formData = new FormData(this);
+          fetch("/convert_pdf", {
+            method: "POST",
+            body: formData,
+          })
+            .then((response) => {
+              if (!response.ok) {
+                return response.json().then((err) => {
+                  throw new Error(err.error);
+                });
+              }
+              return response.json();
+            })
+            .then((data) => {
+              if (data.image_path) {
+                const downloadLink =
+                  document.getElementById("downloadImageLink");
+                downloadLink.href = `/download_image/${data.image_path}`;
+                downloadLink.textContent = `Download ${data.image_path}`;
+                document.getElementById("downloadLink").style.display = "block";
+              }
+            })
+            .catch((error) => {
+              errorDiv.textContent = error.message;
+              errorDiv.style.display = "block";
+              console.error("Conversion error:", error);
+            });
+        });
+    </script>
+  </body>
+</html>
