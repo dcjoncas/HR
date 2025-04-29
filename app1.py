@@ -18,9 +18,6 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 logging.debug(f"Upload folder: {UPLOAD_FOLDER}, exists: {os.path.exists(UPLOAD_FOLDER)}")
 
-# Specify the path to Poppler's bin directory
-POPPLER_PATH = r"C:\poppler\1\poppler-24.08.0\Library\bin"  # Updated to match your Poppler installation
-
 def allowed_pdf(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() == 'pdf'
 
@@ -64,8 +61,7 @@ def convert_pdf():
     image_path = os.path.join(app.config['UPLOAD_FOLDER'], image_filename)
 
     try:
-        # Pass the Poppler path explicitly
-        images = convert_from_path(pdf_path, dpi=200, fmt='png', poppler_path=POPPLER_PATH)
+        images = convert_from_path(pdf_path, dpi=200, fmt='png')
         if not images:
             logging.error("No images extracted from PDF")
             return jsonify({"error": "Failed to convert PDF to image."}), 500
@@ -90,4 +86,4 @@ def download_image(filename):
         return jsonify({"error": "Image not found."}), 404
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5001)  # Run on a different port to avoid conflict with app.py
+    app.run(debug=True, host='0.0.0.0', port=10000)
